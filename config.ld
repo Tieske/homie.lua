@@ -1,0 +1,11 @@
+project='Homie.lua'
+title='Homie for Lua'
+description='Homie, an MQTT convention for IoT/M2M, implementation in Lua'
+format='discount'
+file='./src/'
+dir='docs'
+readme='README.md'
+sort=true
+sort_modules=true
+all=false
+style='./docs/'
