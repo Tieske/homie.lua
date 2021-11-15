@@ -280,6 +280,22 @@ describe("Homie device", function()
       assert(not D._validate_properties(props, node, dev))
     end)
 
+    it("sets the qmtt topic for the property", function()
+      assert(D._validate_properties(props, node, dev))
+      assert.equals("homie/mydev//mynode/propid", props.propid.topic)
+    end)
+
+    it("sets the related node and device properties", function()
+      assert(D._validate_properties(props, node, dev))
+      assert.equals(node, props.propid.node)
+      assert.equals(dev, props.propid.device)
+    end)
+
+    it("sets the Property metatable", function()
+      assert(D._validate_properties(props, node, dev))
+      assert.equals(D._Property, getmetatable(props.propid))
+    end)
+
   end)
 
 
@@ -417,6 +433,16 @@ describe("Homie device", function()
     it("nodes must be valid", function()
       nodes.nodeid.name = 123
       assert(not D._validate_nodes(nodes, dev))
+    end)
+
+    it("sets the related device properties", function()
+      assert(D._validate_nodes(nodes, dev))
+      assert.equals(dev, nodes.nodeid.device)
+    end)
+
+    it("sets the Node metatable", function()
+      assert(D._validate_nodes(nodes, dev))
+      assert.equals(D._Node, getmetatable(nodes.nodeid))
     end)
 
   end)
@@ -687,24 +713,6 @@ describe("Homie device", function()
         end)
 
       end)
-
-
-      pending("properties and nodes get id, device and node objects set", function()
-        -- TODO: implement
-      end)
-
-      pending("properties and nodes get metatable", function()
-        -- TODO: implement
-      end)
-      pending("property gets topic", function()
-        -- TODO: implement
-      end)
-
-      pending("properties get handlers", function()
-        -- TODO: implement
-        -- all property methods!!
-      end)
-
 
     end)
 

@@ -17,6 +17,113 @@ function Property:get()
   return self.value
 end
 
+
+--- Called when remotely setting the value.
+-- Executes: unpack, validate, set, in that order.
+-- Logs an error if something is wrong, and doesn't change the value in that case.
+-- @param pvalue string, the packed value as received.
+-- @return nothing
+function Property:rset(pvalue)
+  if not self.settable then
+    log:error("setting a non-settable property '%s/%s/%'",
+            self.device.base_topic, self.node.id, self.id)
+    return nil, "property is not settable"
+  end
+
+  -- TODO: if prop is non-retained ignore incoming values while the device is still in "init" phase
+  -- How about after reconnecting?
+
+  local value, err = self:unpack(pvalue)
+  if err then -- note: check err, not value!
+    log:warn("remote device tried setting '%s/%s/%' with a bad value that failed unpacking: %s",
+            self.device.base_topic, self.node.id, self.id, err)
+    return nil, "bad value"
+  end
+
+  local ok, err = self:validate(value)
+  if not ok then
+    log:warn("remote device tried setting '%s/%s/%' with a bad value: %s",
+            self.device.base_topic, self.node.id, self.id, err)
+    return nil, "bad value"
+  end
+  self:set(value)
+end
+
+
+do
+  local unpackers
+  unpackers = {
+    string = function(prop, value)
+      return value
+    end,
+
+    integer = function(prop, value)
+      if not value:match("^%-?%d+$") then
+        return nil, "bad integer value"
+      end
+      return tonumber(value)
+    end,
+
+    float = function(prop, value)
+      if value:match("^%-?[0-9%.e]+$") then
+        local v = tonumber(value)
+        if v then
+          return v
+        end
+      end
+      return nil, "bad float value"
+    end,
+
+    percent = function(prop, value)
+      local v = unpackers.float(prop, value)
+      if not v then
+        return nil, "bad percent value"
+      end
+      return v
+    end,
+
+    boolean = function(prop, value)
+      if value == "true" or value == "false" then
+        return value == "true"
+      end
+      return nil, "bad boolean value"
+    end,
+
+    enum = function(prop, value)
+      return value
+    end,
+
+    color = function(prop, value)
+      local v = { value:match("^(%d+),(%d+),(%d+)$") }
+      if not v[1] then
+        return nil, "bad color value"
+      end
+      if prop.format == "hsv" then
+        return { h = v[1], s = v[2], v = v[3] }
+      else
+        return { r = v[1], g = v[2], b = v[3] }
+      end
+    end,
+
+    datetime = function(prop, value)
+      -- TODO: implement
+    end,
+
+    duration = function(prop, value)
+      -- TODO: implement
+    end,
+  }
+  --- deserializes a received value.
+  -- override in case of deserialization needs.
+  -- NOTE: check return values!! nil is a valid value, so check 2nd return value for errors.
+  -- @param value string value to unpack/deserialize
+  -- @return any type of value (including nil), returns an error string as second value in case of errors.
+  function Property:unpack(value)
+    return unpackers[self.datatype](value)
+  end
+end
+
+
 do
   local validators
   validators = {
@@ -101,36 +208,6 @@ do
   end
 end
 
---- Called when remotely setting the value.
--- Executes: unpack, validate, set, in that order.
--- Logs an error if something is wrong, and doesn't change the value in that case.
--- @param pvalue string, the packed value as received.
--- @return nothing
-function Property:rset(pvalue)
-  if not self.settable then
-    log:error("setting a non-settable property '%s/%s/%'",
-            self.device.base_topic, self.node.id, self.id)
-    return nil, "property is not settable"
-  end
-
-  -- TODO: if prop is non-retained ignore incoming values while the device is still in "init" phase
-  -- How about after reconnecting?
-
-  local value, err = self:unpack(pvalue)
-  if err then -- note: check err, not value!
-    log:warn("remote device tried setting '%s/%s/%' with a bad value that failed unpacking: %s",
-            self.device.base_topic, self.node.id, self.id, err)
-    return nil, "bad value"
-  end
-
-  local ok, err = self:validate(value)
-  if not ok then
-    log:warn("remote device tried setting '%s/%s/%' with a bad value: %s",
-            self.device.base_topic, self.node.id, self.id, err)
-    return nil, "bad value"
-  end
-  self:set(value)
-end
 
 --- Local application code can set a value through this method.
 -- Default just calls `update`. Implement actual changing device behaviour here
@@ -139,79 +216,6 @@ end
 -- @return nothing
 function Property:set(value)
   self:update(value)
-end
-
-do
-  local unpackers
-  unpackers = {
-    string = function(prop, value)
-      return value
-    end,
-
-    integer = function(prop, value)
-      if not value:match("^%-?%d+$") then
-        return nil, "bad integer value"
-      end
-      return tonumber(value)
-    end,
-
-    float = function(prop, value)
-      if value:match("^%-?[0-9%.e]+$") then
-        local v = tonumber(value)
-        if v then
-          return v
-        end
-      end
-      return nil, "bad float value"
-    end,
-
-    percent = function(prop, value)
-      local v = unpackers.float(prop, value)
-      if not v then
-        return nil, "bad percent value"
-      end
-      return v
-    end,
-
-    boolean = function(prop, value)
-      if value == "true" or value == "false" then
-        return value == "true"
-      end
-      return nil, "bad boolean value"
-    end,
-
-    enum = function(prop, value)
-      return value
-    end,
-
-    color = function(prop, value)
-      local v = { value:match("^(%d+),(%d+),(%d+)$") }
-      if not v[1] then
-        return nil, "bad color value"
-      end
-      if prop.format == "hsv" then
-        return { h = v[1], s = v[2], v = v[3] }
-      else
-        return { r = v[1], g = v[2], b = v[3] }
-      end
-    end,
-
-    datetime = function(prop, value)
-      -- TODO: implement
-    end,
-
-    duration = function(prop, value)
-      -- TODO: implement
-    end,
-  }
-  --- deserializes a received value.
-  -- override in case of deserialization needs.
-  -- NOTE: check return values!! nil is a valid value, so check 2nd return value for errors.
-  -- @param value string value to unpack/deserialize
-  -- @return any type of value (including nil), returns an error string as second value in case of errors.
-  function Property:unpack(value)
-    return unpackers[self.datatype](value)
-  end
 end
 
 
@@ -798,6 +802,9 @@ if _G._TEST then
   Device._validate_node = validate_node
   Device._validate_nodes = validate_nodes
   Device._validate_device = validate_device
+  -- object metatables
+  Device._Property = Property
+  Device._Node = Node
 end
 
 return Device
