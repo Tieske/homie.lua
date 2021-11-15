@@ -644,14 +644,46 @@ describe("Homie device", function()
         end)
       end)
 
-      describe("broadcast property", function()
+      describe("broadcast topics", function()
 
-        pending("topic get validated", function()
-          -- TODO: implement
+        it("topic get validated", function()
+          assert.has.error(function()
+            -- add domain non-matching
+            dev.broadcast[dev.domain.."x/$broadcast/#"] = function() end
+            D.new(dev)
+          end)
         end)
 
-        pending("handler gets 'self' injected", function()
-          -- TODO: implement
+        it("handler gets 'self' injected", function()
+          local bt = dev.domain.."/$broadcast/#"
+          local delivered
+          dev.broadcast[bt] = function(...)
+            delivered = { n = select("#", ...), ... }
+          end
+          assert(D.new(dev))
+          local msg = {}
+          local mqtt_client = dev.mqtt
+          mqtt_client.acknowledge = function() return true end
+          -- call handler with parameters as done by the MQTT client
+          dev.broadcast[bt](msg, mqtt_client)
+          assert.equal(dev, delivered[1])
+          assert.equal(msg, delivered[2])
+          assert.equal(dev.mqtt, delivered[3])
+          assert.equal(3, delivered.n)
+        end)
+
+        it("handler acknowledges received message", function()
+          local bt = dev.domain.."/$broadcast/#"
+          dev.broadcast[bt] = function() end
+          assert(D.new(dev))
+          local msg = {}
+          local mqtt_client = dev.mqtt
+          function mqtt_client:acknowledge(ackmsg)
+            assert.equals(msg, ackmsg)
+            return true
+          end
+          -- call handler with parameters as done by the MQTT client
+          dev.broadcast[bt](msg, mqtt_client)
         end)
 
       end)

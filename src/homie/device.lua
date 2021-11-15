@@ -361,7 +361,7 @@ local function validate_broadcast_topic(self, topic)
     -- is fully qualified, so must match domain
     local start = self.domain.."/$broadcast/"
     if topic:sub(1, #start) ~= start then
-      return nil, ("broadcast topic '%s' doesn't match device domain '%s'"):format(topic, self.domain)
+      return nil, ("broadcast topic '%s' doesn't match device domain '%s/$broadcast/'"):format(topic, self.domain)
     end
     return topic
   end
@@ -375,7 +375,7 @@ end
 
 -- wraps a broadcast handler function.
 -- does the acknowledge, calls the handler while injuecting 'self' (the device).
-local function broadcast_handler(device, handler)
+local function create_broadcast_handler(device, handler)
   return function(msg, mqttclient)
     assert(mqttclient == device.mqtt, "mqtt client instance mismatch!")
     local ok, err = mqttclient:acknowledge(msg)
@@ -718,7 +718,7 @@ function Device:__init()
     topic = assert(validate_broadcast_topic(self, topic))
     handler = assert(type(handler) == "function" and handler, "expected broadcast handler to be a function")
     -- inject 'self' as first parameter on call backs
-    self.broadcast[topic] = broadcast_handler(handler)
+    self.broadcast[topic] = create_broadcast_handler(self, handler)
   end
 
   -- Validate device and nodes
