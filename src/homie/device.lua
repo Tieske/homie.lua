@@ -501,6 +501,11 @@ local function validate_property(prop)
         retained = true,
         format = true,
         unit = true,
+        id = true,
+        node = true,
+        device = true,
+        topic = true,
+        super = true,
       })[key] then
       return nil, "property contains unknown key '" .. tostring(key) .. "'"
     end
@@ -525,9 +530,8 @@ local function validate_properties(props, node, device)
       return nil, "bad property-id: " .. err
     end
 
-    ok, err = validate_property(prop)
-    if not ok then
-      return nil, "bad property '" .. propid .. "': " .. err
+    if type(prop) ~= "table" then
+      return nil, "expected 'property' to be a table"
     end
 
     -- add the id, node and device, create topic, and make an object of type Property
@@ -537,6 +541,11 @@ local function validate_properties(props, node, device)
     prop.topic = device.base_topic .. "/" .. node.id .. "/" .. propid
     setmetatable(prop, Property)
     prop.super = Property
+
+    ok, err = validate_property(prop)
+    if not ok then
+      return nil, "bad property '" .. propid .. "': " .. err
+    end
   end
 
   return props
@@ -569,7 +578,14 @@ local function validate_node(node, device)
   end
 
   for key in pairs(node) do
-    if not ({ name = true, type = true, properties = true })[key] then
+    if not ({
+        name = true,
+        type = true,
+        properties = true,
+        id = true,
+        device = true,
+        super = true,
+      })[key] then
       return nil, "node contains unknown key '" .. tostring(key) .. "'"
     end
   end
@@ -593,9 +609,8 @@ local function validate_nodes(nodes, device)
       return nil, "bad nodeid: " .. err
     end
 
-    ok, err = validate_node(node, device)
-    if not ok then
-      return nil, "bad node '" .. nodeid .. "': " .. err
+    if type(node) ~= "table" then
+      return nil, "expected 'node' to be a table"
     end
 
     -- add the id and device, make an object of type Node
@@ -603,7 +618,12 @@ local function validate_nodes(nodes, device)
     node.device = assert(device, "device parameter is missing")
     setmetatable(node, Node)
     node.super = Node
+
+    ok, err = validate_node(node, device)
+    if not ok then
+      return nil, "bad node '" .. nodeid .. "': " .. err
     end
+  end
 
   return nodes
 end

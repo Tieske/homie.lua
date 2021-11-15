@@ -107,7 +107,7 @@ describe("Homie device", function()
 
   describe("validate_property()", function()
 
-    local prop
+    local prop, node, dev
 
     before_each(function()
       -- set to something valid before each test
@@ -122,34 +122,34 @@ describe("Homie device", function()
     end)
 
     it("accepts valid properties", function()
-      assert(D._validate_property(prop))
+      assert(D._validate_property(prop, node, dev))
     end)
 
     it("does not allow unknown attributes/fields", function()
       prop.someattribute = "a value"
-      assert(not D._validate_property(prop))
+      assert(not D._validate_property(prop, node, dev))
     end)
 
     it("property must be a table", function()
       prop = 123
-      assert(not D._validate_property(prop))
+      assert(not D._validate_property(prop, node, dev))
     end)
 
     describe("$name attribute", function()
 
       it("is required", function()
         prop.name = nil
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
       it("must be a string", function()
         prop.name = 123
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
       it("cannot be empty string", function()
         prop.name = ""
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
     end)
@@ -158,17 +158,17 @@ describe("Homie device", function()
 
       it("is required", function()
         prop.datatype = nil
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
       it("must be a string", function()
         prop.datatype = 123
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
       it("must be a valid type", function()
         prop.datatype = "not an integer"
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
     end)
@@ -177,17 +177,17 @@ describe("Homie device", function()
 
       it("is not required", function()
         prop.settable = nil
-        assert(D._validate_property(prop))
+        assert(D._validate_property(prop, node, dev))
       end)
 
       it("must be a boolean", function()
         prop.settable = 123
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
       it("defaults to false", function()
         prop.settable = nil
-        assert(D._validate_property(prop))
+        assert(D._validate_property(prop, node, dev))
         assert.is.False(prop.settable)
       end)
 
@@ -197,17 +197,17 @@ describe("Homie device", function()
 
       it("is not required", function()
         prop.retained = nil
-        assert(D._validate_property(prop))
+        assert(D._validate_property(prop, node, dev))
       end)
 
       it("must be a boolean", function()
         prop.retained = 123
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
       it("defaults to false", function()
         prop.retained = nil
-        assert(D._validate_property(prop))
+        assert(D._validate_property(prop, node, dev))
         assert.is.True(prop.settable)
       end)
 
@@ -217,17 +217,17 @@ describe("Homie device", function()
 
       it("is not required", function()
         prop.unit = nil
-        assert(D._validate_property(prop))
+        assert(D._validate_property(prop, node, dev))
       end)
 
       it("must be a string", function()
         prop.unit = 123
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
       it("cannot be empty string", function()
         prop.unit = ""
-        assert(not D._validate_property(prop))
+        assert(not D._validate_property(prop, node, dev))
       end)
 
     end)
@@ -238,7 +238,7 @@ describe("Homie device", function()
 
   describe("validate_properties()", function()
 
-    local props
+    local props, node, dev
 
     before_each(function()
       -- set properties to something valid before each test
@@ -252,26 +252,32 @@ describe("Homie device", function()
           unit = "°C",
         }
       }
+      node = {
+        id = "mynode"
+      }
+      dev = {
+        base_topic = "homie/mydev/"
+      }
     end)
 
 
     it("accepts valid properties", function()
-      assert(D._validate_properties(props))
+      assert(D._validate_properties(props, node, dev))
     end)
 
     it("property must be a table", function()
       props.propid = "hello"
-      assert(not D._validate_properties(props))
+      assert(not D._validate_properties(props, node, dev))
     end)
 
     it("properties must have a valid property ID", function()
       props["---"] = props.propid
-      assert(not D._validate_properties(props))
+      assert(not D._validate_properties(props, node, dev))
     end)
 
     it("properties must be valid", function()
       props.propid.name = 123
-      assert(not D._validate_properties(props))
+      assert(not D._validate_properties(props, node, dev))
     end)
 
   end)
@@ -280,11 +286,12 @@ describe("Homie device", function()
 
   describe("validate_node()", function()
 
-    local node
+    local node, dev
 
     before_each(function()
       -- set to something valid before each test
       node = {
+        id = "mynode",
         name = "thermostat",
         type = "horstmann",
         properties = {
@@ -298,38 +305,41 @@ describe("Homie device", function()
           }
         }
       }
+      dev = {
+        base_topic = "homie/mydev/"
+      }
     end)
 
 
     it("accepts a valid node", function()
-      assert(D._validate_node(node))
+      assert(D._validate_node(node, dev))
     end)
 
     it("does not allow unknown attributes/fields", function()
       node.someattribute = "a value"
-      assert(not D._validate_node(node))
+      assert(not D._validate_node(node, dev))
     end)
 
     it("node must be a table", function()
       node = 123
-      assert(not D._validate_node(node))
+      assert(not D._validate_node(node, dev))
     end)
 
     describe("$name attribute", function()
 
       it("is required", function()
         node.name = nil
-        assert(not D._validate_node(node))
+        assert(not D._validate_node(node, dev))
       end)
 
       it("must be a string", function()
         node.name = 123
-        assert(not D._validate_node(node))
+        assert(not D._validate_node(node, dev))
       end)
 
       it("cannot be empty string", function()
         node.name = ""
-        assert(not D._validate_node(node))
+        assert(not D._validate_node(node, dev))
       end)
 
     end)
@@ -338,24 +348,24 @@ describe("Homie device", function()
 
       it("is required", function()
         node.type = nil
-        assert(not D._validate_node(node))
+        assert(not D._validate_node(node, dev))
       end)
 
       it("must be a string", function()
         node.type = 123
-        assert(not D._validate_node(node))
+        assert(not D._validate_node(node, dev))
       end)
 
       it("cannot be empty string", function()
         node.type = ""
-        assert(not D._validate_node(node))
+        assert(not D._validate_node(node, dev))
       end)
 
     end)
 
     it("$properties is required", function()
       node.properties = nil
-      assert(not D._validate_node(node))
+      assert(not D._validate_node(node, dev))
     end)
 
   end)
@@ -364,7 +374,7 @@ describe("Homie device", function()
 
   describe("validate_nodes()", function()
 
-    local nodes
+    local nodes, dev
 
     before_each(function()
       -- set to something valid before each test
@@ -384,26 +394,29 @@ describe("Homie device", function()
           }
         }
       }
+      dev = {
+        base_topic = "homie/mydev/"
+      }
     end)
 
 
     it("accepts valid nodes", function()
-      assert(D._validate_nodes(nodes))
+      assert(D._validate_nodes(nodes, dev))
     end)
 
     it("node must be a table", function()
       nodes.nodeid = "hello"
-      assert(not D._validate_nodes(nodes))
+      assert(not D._validate_nodes(nodes, dev))
     end)
 
     it("nodes must have a valid node ID", function()
       nodes["---"] = nodes.nodeid
-      assert(not D._validate_nodes(nodes))
+      assert(not D._validate_nodes(nodes, dev))
     end)
 
     it("nodes must be valid", function()
       nodes.nodeid.name = 123
-      assert(not D._validate_nodes(nodes))
+      assert(not D._validate_nodes(nodes, dev))
     end)
 
   end)
@@ -421,6 +434,7 @@ describe("Homie device", function()
         name = "device name",
         extensions = "",
         implementation = "my device",
+        base_topic = "homie/mydev",
         nodes = {
           nodeid = {
             name = "thermostat",
