@@ -58,10 +58,13 @@ do
     end,
 
     integer = function(prop, value)
-      if not value:match("^%-?%d+$") then
-        return nil, "bad integer value"
+      if value:match("^%-?[%de]+$") then
+        local v = tonumber(value)
+        if v then
+          return v
+        end
       end
-      return tonumber(value)
+      return nil, "bad integer value"
     end,
 
     float = function(prop, value)
@@ -99,9 +102,9 @@ do
         return nil, "bad color value"
       end
       if prop.format == "hsv" then
-        return { h = v[1], s = v[2], v = v[3] }
+        return { h = tonumber(v[1]), s = tonumber(v[2]), v = tonumber(v[3]) }
       else
-        return { r = v[1], g = v[2], b = v[3] }
+        return { r = tonumber(v[1]), g = tonumber(v[2]), b = tonumber(v[3]) }
       end
     end,
 
@@ -110,7 +113,38 @@ do
     end,
 
     duration = function(prop, value)
-      -- TODO: implement
+      -- "PThHmMsS"
+      if value:sub(1,2) == "PT" then
+        value = value:sub(3,-1)
+        local h = value:match("^([^H]+)H")
+        if h then
+          value = value:sub(#h+2, -1)
+          h = tonumber(h)
+        else
+          h = 0
+        end
+
+        local m = value:match("^([^M]+)M")
+        if m then
+          value = value:sub(#m+2, -1)
+          m = tonumber(m)
+        else
+          m = 0
+        end
+
+        local s = value:match("^([^S]+)S")
+        if s then
+          value = value:sub(#s+2, -1)
+          s = tonumber(s)
+        else
+          s = 0
+        end
+
+        if value == "" and h and m and s then
+          return h*60*60 + m*60 + s
+        end
+      end
+      return false, "bad duration value"
     end,
   }
   --- deserializes a received value.
@@ -119,13 +153,21 @@ do
   -- @param value string value to unpack/deserialize
   -- @return any type of value (including nil), returns an error string as second value in case of errors.
   function Property:unpack(value)
-    return unpackers[self.datatype](value)
+    return unpackers[self.datatype](self, value)
   end
 end
 
 
 do
   local validators
+
+  local function check_min_max(prop, value)
+    local min, max = prop.format:match("^([^:]+):([^:]+)$")
+    min = tonumber(min)
+    max = tonumber(max)
+    return value >= min and value <= max
+  end
+
   validators = {
     string = function(prop, value)
       local ok = type(value) == "string"
@@ -133,21 +175,26 @@ do
     end,
 
     integer = function(prop, value)
-      local ok = type(value) == "number" and math.floor(value) == value
-      return ok, not ok and "value is not an integer number" or nil
+      local ok = type(value) == "number" and
+                 math.floor(value) == value and
+                 check_min_max(prop, value)
+      return ok, not ok and "value is not an integer number within range" or nil
     end,
 
     float = function(prop, value)
-      local ok = type(value) == "number"
-      return ok, not ok and "value is not of type number" or nil
+      local ok = type(value) == "number" and
+                 check_min_max(prop, value)
+      return ok, not ok and "value is not a number within range" or nil
     end,
 
     percent = function(prop, value)
-      local ok = type(value) == "number"
-      return ok, not ok and "value is not of type number" or nil
+      local ok = type(value) == "number" and
+                 check_min_max(prop, value)
+      return ok, not ok and "value is not a number within range" or nil
     end,
 
     boolean = function(prop, value)
+      -- using Lua falsy/truthy, no hard boolean checks
       return true
     end,
 
@@ -195,7 +242,8 @@ do
     end,
 
     duration = function(prop, value)
-      -- TODO: implement
+      local ok = type(value) == "number" and value >= 0
+      return ok, not ok and "value is not a valid duration" or nil
     end,
   }
 
@@ -204,7 +252,7 @@ do
   -- @param value the (unpacked) value to validate
   -- @retrun true if ok, nil+err if not.
   function Property:validate(value)
-    return validators[self.datatype](value)
+    return validators[self.datatype](self, value)
   end
 end
 
@@ -257,7 +305,26 @@ do
     end,
 
     duration = function(prop, value)
-      -- TODO: implement
+      local s, m, h
+      h = math.floor(value/(60 * 60))
+      value = value - h * 60 * 60
+      m = math.floor(value/60)
+      s = value - m * 60
+
+      local ret = ""
+      if h > 0 then
+        ret = ret .. tonumber(h).."H"
+      end
+      if m > 0 then
+        ret = ret .. tonumber(m).."M"
+      end
+      if s > 0 then
+        ret = ret .. tonumber(s).."S"
+      end
+      if ret == "" then
+        ret = "0S"
+      end
+      return "PT"..ret
     end,
   }
   --- serializes a received value.
@@ -265,7 +332,7 @@ do
   -- @param value the unpacked value to be serialized into a string
   -- @return packed value (string), or nil+err on failure
   function Property:pack(value)
-    return packers[self.datatype](value)
+    return packers[self.datatype](self, value)
   end
 end
 
@@ -273,15 +340,29 @@ end
 --- Compares 2 (unpacked) values for equality. If old and new values are equal,
 -- no updates need to be transmitted. If values are unpacked into complex structures
 -- override this to check for equality.
+-- @param prop property for which to check equality
 -- @param value1 the (unpacked) value to compare with the 2nd
 -- @param value2 the (unpacked) value to compare with the 1st
 -- @return boolean
-function Property:values_same(value1, value2)
-  if type(value1) == type(value2) then
-    return value1 == value2
-  else
+function Property:values_same(prop, value1, value2)
+  if prop.datatype == "boolean" then
+    value1 = not not value1
+    value2 = not not value2
+  end
+
+  if type(value1) ~= type(value2) then
     return false
   end
+
+  if prop.datatype == "color" then
+    if prop.format == "hsv" then
+      return value1.h == value2.h and value1.s == value2.s and value1.v == value2.v
+    else
+      return value1.r == value2.r and value1.g == value2.g and value1.b == value2.b
+    end
+  end
+
+  return value1 == value2
 end
 
 -- update(value) validates and updates local .value and send mqtt message. No need to
@@ -298,7 +379,7 @@ function Property:update(value)
   self.value = value
 
   -- craft mqtt packet and send it
-  self.device:send_property_update(self, pvalue)
+  self.device:send_property_update(self.topic, pvalue, self.retained)
 end
 
 
@@ -764,12 +845,11 @@ function Device:verify_initial_values()
 end
 
 --- Send an MQTT message with the value update.
--- @param prop the property object issuing the update
+-- @param topic to post to
 -- @param pvalue the packed/serialized value to send over the wire
+-- @param retained the retain flag to use when sending
 -- @return nothing
-function Device:send_property_update(prop, pvalue)
-  local topic = prop.topic
-  local retained = prop.retained
+function Device:send_property_update(topic, pvalue, retained)
 
   -- non-retained messages should be dropped if not connected
   -- retained ones should be queued, and coalesced.
