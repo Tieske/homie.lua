@@ -25,7 +25,7 @@ end
 -- @return nothing
 function Property:rset(pvalue)
   if not self.settable then
-    log:error("setting a non-settable property '%s/%s/%'",
+    log:warn("attempt to set a non-settable property '%s/%s/%s'",
             self.device.base_topic, self.node.id, self.id)
     return nil, "property is not settable"
   end
@@ -35,7 +35,7 @@ function Property:rset(pvalue)
 
   local value, err = self:unpack(pvalue)
   if err then -- note: check err, not value!
-    log:warn("remote device tried setting '%s/%s/%' with a bad value that failed unpacking: %s",
+    log:warn("remote device tried setting '%s/%s/%s' with a bad value that failed unpacking: %s",
             self.device.base_topic, self.node.id, self.id, err)
     return nil, "bad value"
   end
@@ -162,6 +162,10 @@ do
   local validators
 
   local function check_min_max(prop, value)
+    if not prop.format then
+      return true
+    end
+
     local min, max = prop.format:match("^([^:]+):([^:]+)$")
     min = tonumber(min)
     max = tonumber(max)
@@ -340,12 +344,11 @@ end
 --- Compares 2 (unpacked) values for equality. If old and new values are equal,
 -- no updates need to be transmitted. If values are unpacked into complex structures
 -- override this to check for equality.
--- @param prop property for which to check equality
 -- @param value1 the (unpacked) value to compare with the 2nd
 -- @param value2 the (unpacked) value to compare with the 1st
 -- @return boolean
-function Property:values_same(prop, value1, value2)
-  if prop.datatype == "boolean" then
+function Property:values_same(value1, value2)
+  if self.datatype == "boolean" then
     value1 = not not value1
     value2 = not not value2
   end
@@ -354,8 +357,8 @@ function Property:values_same(prop, value1, value2)
     return false
   end
 
-  if prop.datatype == "color" then
-    if prop.format == "hsv" then
+  if self.datatype == "color" then
+    if self.format == "hsv" then
       return value1.h == value2.h and value1.s == value2.s and value1.v == value2.v
     else
       return value1.r == value2.r and value1.g == value2.g and value1.b == value2.b
@@ -371,7 +374,7 @@ end
 -- @return nothing
 function Property:update(value)
   assert(self:validate(value))
-  if self:values_same(value, self.value) then
+  if self:values_same(value, self:get()) then
     return -- no need for updates
   end
 
@@ -560,7 +563,7 @@ local function validate_property(prop)
     end
   end
 
-  if prop.format ~= nil then
+  if prop.format ~= nil or prop.datatype == "color" or prop.datatype == "enum" then
     local ok, err = validate_format(prop.datatype, prop.format)
     if not ok then
       return nil, err
@@ -815,9 +818,10 @@ function Device:__init()
     for propid, prop in pairs(node.properties) do
       if prop.settable then
         local topic = self.base_topic .. nodeid .. "/" .. propid .. "/set"
-        local handler = function(...)
-            return prop.rset(prop, self, ...)
-          end
+        local handler = function(packet, mqttclient)
+          mqttclient:acknowledge(packet)
+          prop.rset(prop, packet.payload)
+        end
         self.settable_subscriptions[topic] = handler
       end
     end
@@ -839,10 +843,11 @@ end
 
 --- Method to verify initial values. Can be used to verify values received from
 -- broker, or to just initialize values. When this returns the values must be in
--- a consistent state.
+-- a consistent state. This is only called on device start, not on reconnects.
 function Device:verify_initial_values()
   -- override in instances
 end
+
 
 --- Send an MQTT message with the value update.
 -- @param topic to post to
@@ -853,22 +858,33 @@ function Device:send_property_update(topic, pvalue, retained)
 
   -- non-retained messages should be dropped if not connected
   -- retained ones should be queued, and coalesced.
+  -- TODO: implement, for now just publish
 
-  -- TODO: implement
+  self.mqtt:publish {
+    topic = topic,
+    payload = pvalue,
+    qos = 1,
+    retain = retained,
+  }
+
 end
 
+
 function Device:start()
-    -- prepare for cleanup broker-side
     -- connect
-    -- subscribe to own topics
+    -- subscribe to own property topics
     -- wait for timeout and updates
-    -- unsubscribe own topics
-    -- compare and clean unknown topics received
+    --    - clear unknown items received
+    --    - register last state received from broker
+    -- unsubscribe own property topics
+    -- subscribe to own broadcast and settable topics
   self:verify_initial_values()
 
+  require("mqtt.loop").add(self.mqtt)
 end
 
 function Device:stop()
+  self.mqtt:shutdown()
 end
 
 

@@ -163,6 +163,9 @@ describe("Homie device", function()
       assert.is.False(prop:validate("123"))
       assert.is.False(prop:validate(-1000000))
       assert.is.False(prop:validate(1000000))
+
+      prop.format = nil -- format is optional
+      assert.is.True(prop:validate(12))
     end)
 
     it("float", function()
@@ -175,6 +178,9 @@ describe("Homie device", function()
       assert.is.False(prop:validate("123"))
       assert.is.False(prop:validate(-1000000))
       assert.is.False(prop:validate(1000000))
+
+      prop.format = nil -- format is optional
+      assert.is.True(prop:validate(12))
     end)
 
     it("percent", function()
@@ -187,6 +193,9 @@ describe("Homie device", function()
       assert.is.False(prop:validate("123"))
       assert.is.False(prop:validate(-1000000))
       assert.is.False(prop:validate(1000000))
+
+      prop.format = nil -- format is optional
+      assert.is.True(prop:validate(12))
     end)
 
     it("boolean", function()
@@ -261,16 +270,31 @@ describe("Homie device", function()
 
   describe("property:rset()", function()
 
-    pending("doesn't set on non-settable properties", function()
-      -- TODO: implement
+    before_each(function()
+      prop.id = "propid"
+      prop.settable = true
+      prop.datatype = "integer"
+      prop.node = { id = "nodeid" }
+      prop.device = { base_topic = "homie/devid/" }
     end)
 
-    pending("unpacks received values", function()
-      -- TODO: implement
+    it("doesn't set on non-settable properties", function()
+      prop.settable = false
+      local ok, err = prop:rset("123")
+      assert.equal("property is not settable", err)
+      assert.is.Nil(ok)
     end)
 
-    pending("validates received values", function()
-      -- TODO: implement
+    it("unpacks received values", function()
+      local s = stub(prop, "set")
+      prop:rset("123")
+      assert.stub(s).was.called.with(prop, 123)
+    end)
+
+    it("validates received values", function()
+      local ok, err = prop:rset("abc")
+      assert.equal("bad value", err)
+      assert.is.Nil(ok)
     end)
 
   end)
@@ -354,63 +378,63 @@ describe("Homie device", function()
 
     it("string", function()
       prop.datatype = "string"
-      assert.is.True(prop:values_same(prop, "hello", "hello"))
-      assert.is.False(prop:values_same(prop, "hello", "goodbye"))
+      assert.is.True(prop:values_same("hello", "hello"))
+      assert.is.False(prop:values_same("hello", "goodbye"))
     end)
 
     it("integer", function()
       prop.datatype = "integer"
-      assert.is.True(prop:values_same(prop, 10, 10))
-      assert.is.False(prop:values_same(prop, 10, 11))
+      assert.is.True(prop:values_same(10, 10))
+      assert.is.False(prop:values_same(10, 11))
     end)
 
     it("float", function()
       prop.datatype = "integer"
-      assert.is.True(prop:values_same(prop, 10.1, 10.1))
-      assert.is.False(prop:values_same(prop, 10.1, 11.1))
+      assert.is.True(prop:values_same(10.1, 10.1))
+      assert.is.False(prop:values_same(10.1, 11.1))
     end)
 
     it("percent", function()
       prop.datatype = "percent"
-      assert.is.True(prop:values_same(prop, 10.1, 10.1))
-      assert.is.False(prop:values_same(prop, 10.1, 11.1))
+      assert.is.True(prop:values_same(10.1, 10.1))
+      assert.is.False(prop:values_same(10.1, 11.1))
     end)
 
     it("boolean", function()
       prop.datatype = "boolean"
-      assert.is.True(prop:values_same(prop, true, true))
-      assert.is.True(prop:values_same(prop, false, false))
-      assert.is.True(prop:values_same(prop, false, nil))
-      assert.is.True(prop:values_same(prop, true, "hi"))
-      assert.is.True(prop:values_same(prop, true, 123))
+      assert.is.True(prop:values_same(true, true))
+      assert.is.True(prop:values_same(false, false))
+      assert.is.True(prop:values_same(false, nil))
+      assert.is.True(prop:values_same(true, "hi"))
+      assert.is.True(prop:values_same(true, 123))
     end)
 
     it("enum", function()
       prop.datatype = "enum"
-      assert.is.True(prop:values_same(prop, "hello", "hello"))
-      assert.is.False(prop:values_same(prop, "hello", "goodbye"))
+      assert.is.True(prop:values_same("hello", "hello"))
+      assert.is.False(prop:values_same("hello", "goodbye"))
     end)
 
     it("color; hsv", function()
       prop.datatype = "color"
       prop.format = "hsv"
-      assert.is.True(prop:values_same(prop, { h=1, s=2, v=3 }, { h=1, s=2, v=3 }))
-      assert.is.False(prop:values_same(prop, { h=1, s=2, v=3 }, { h=0, s=2, v=3 }))
-      assert.is.False(prop:values_same(prop, { h=1, s=2, v=3 }, { h=1, s=0, v=3 }))
-      assert.is.False(prop:values_same(prop, { h=1, s=2, v=3 }, { h=1, s=2, v=0 }))
-      assert.is.False(prop:values_same(prop, { h=1, s=2, v=3 }, true))
-      assert.is.False(prop:values_same(prop, { h=1, s=2, v=3 }, "true"))
+      assert.is.True(prop:values_same({ h=1, s=2, v=3 }, { h=1, s=2, v=3 }))
+      assert.is.False(prop:values_same({ h=1, s=2, v=3 }, { h=0, s=2, v=3 }))
+      assert.is.False(prop:values_same({ h=1, s=2, v=3 }, { h=1, s=0, v=3 }))
+      assert.is.False(prop:values_same({ h=1, s=2, v=3 }, { h=1, s=2, v=0 }))
+      assert.is.False(prop:values_same({ h=1, s=2, v=3 }, true))
+      assert.is.False(prop:values_same({ h=1, s=2, v=3 }, "true"))
     end)
 
     it("color; rgb", function()
       prop.datatype = "color"
       prop.format = "rgb"
-      assert.is.True(prop:values_same(prop, { r=1, g=2, b=3 }, { r=1, g=2, b=3 }))
-      assert.is.False(prop:values_same(prop, { r=1, g=2, b=3 }, { r=0, g=2, b=3 }))
-      assert.is.False(prop:values_same(prop, { r=1, g=2, b=3 }, { r=1, g=0, b=3 }))
-      assert.is.False(prop:values_same(prop, { r=1, g=2, b=3 }, { r=1, g=2, b=0 }))
-      assert.is.False(prop:values_same(prop, { r=1, g=2, b=3 }, true))
-      assert.is.False(prop:values_same(prop, { r=1, g=2, b=3 }, "true"))
+      assert.is.True(prop:values_same({ r=1, g=2, b=3 }, { r=1, g=2, b=3 }))
+      assert.is.False(prop:values_same({ r=1, g=2, b=3 }, { r=0, g=2, b=3 }))
+      assert.is.False(prop:values_same({ r=1, g=2, b=3 }, { r=1, g=0, b=3 }))
+      assert.is.False(prop:values_same({ r=1, g=2, b=3 }, { r=1, g=2, b=0 }))
+      assert.is.False(prop:values_same({ r=1, g=2, b=3 }, true))
+      assert.is.False(prop:values_same({ r=1, g=2, b=3 }, "true"))
     end)
 
     pending("datetime", function()
@@ -419,8 +443,8 @@ describe("Homie device", function()
 
     it("duration", function()
       prop.datatype = "duration"
-      assert.is.True(prop:values_same(prop, 10.1, 10.1))
-      assert.is.False(prop:values_same(prop, 10.1, 11.1))
+      assert.is.True(prop:values_same(10.1, 10.1))
+      assert.is.False(prop:values_same(10.1, 11.1))
     end)
 
   end)
@@ -429,20 +453,44 @@ describe("Homie device", function()
 
   describe("property:update()", function()
 
-    pending("validates value", function()
-      -- TODO: implement
+    before_each(function()
+      prop.id = "propid"
+      prop.retained = true
+      prop.settable = true
+      prop.datatype = "integer"
+      prop.node = { id = "nodeid" }
+      prop.device = {
+        send_property_update = function() end,
+        base_topic = "homie/devid/"
+      }
+      prop.topic = prop.device.base_topic .. prop.node.id .. "/" ..prop.id
     end)
 
-    pending("only updates if different", function()
-      -- TODO: implement
+    it("validates value", function()
+      assert.has.error(function()
+        prop:set("abc")
+      end, "value is not an integer number within range")
     end)
 
-    pending("packs value", function()
-      -- TODO: implement
+    it("calls device to send MQTT topic update", function()
+      local new_value = (prop:get() or 0) + 1
+      local s = stub(prop.device, "send_property_update")
+      prop:update(new_value)
+      assert.stub(s).was.called.with(prop.device, prop.topic, tostring(new_value), prop.retained)
     end)
 
-    pending("send MQTT topic update", function()
-      -- TODO: implement
+    it("packs value", function()
+      local new_value = (prop:get() or 0) + 1
+      local s = stub(prop.device, "send_property_update")
+      prop:update(new_value)
+      assert.stub(s).was.called.with(prop.device, prop.topic, tostring(new_value), prop.retained)
+    end)
+
+    it("only updates if different", function()
+      prop:update(123)
+      local s = stub(prop.device, "send_property_update")
+      prop:update(prop:get())
+      assert.stub(s).was.Not.called()
     end)
 
   end)
@@ -451,8 +499,18 @@ describe("Homie device", function()
 
   describe("property:set()", function()
 
-    pending("calls 'update'", function()
-      -- TODO: implement
+    before_each(function()
+      prop.id = "propid"
+      prop.settable = true
+      prop.datatype = "integer"
+      prop.node = { id = "nodeid" }
+      prop.device = { base_topic = "homie/devid/" }
+    end)
+
+    it("calls 'update'", function()
+      local s = stub(prop, "update")
+      prop:set(123)
+      assert.stub(s).was.called.with(prop, 123)
     end)
 
   end)

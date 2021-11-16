@@ -119,6 +119,8 @@ describe("Homie device", function()
         retained = true,
         unit = "°C",
       }
+      node = {}
+      dev = {}
     end)
 
     it("accepts valid properties", function()
@@ -209,6 +211,31 @@ describe("Homie device", function()
         prop.retained = nil
         assert(D._validate_property(prop, node, dev))
         assert.is.True(prop.settable)
+      end)
+
+    end)
+
+    describe("$format attribute", function()
+
+      it("is required for enum", function()
+        prop.format = nil
+        prop.datatype = "enum"
+        prop.format = nil
+        assert(not D._validate_property(prop, node, dev))
+      end)
+
+      it("is required for color", function()
+        prop.format = nil
+        prop.datatype = "color"
+        prop.format = nil
+        assert(not D._validate_property(prop, node, dev))
+      end)
+
+      it("is not required for others", function()
+        prop.format = nil
+        prop.datatype = "integer"
+        prop.format = nil
+        assert(D._validate_property(prop, node, dev))
       end)
 
     end)
