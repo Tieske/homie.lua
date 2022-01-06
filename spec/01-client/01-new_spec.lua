@@ -111,14 +111,15 @@ describe("Homie device", function()
 
     before_each(function()
       -- set to something valid before each test
-      prop = {
+      prop = setmetatable({
         name = "setpoint",
         datatype = "float",
         format = "1:100",
         settable = true,
         retained = true,
         unit = "°C",
-      }
+        default = 10,
+      }, D._Property)
       node = {}
       dev = {}
     end)
@@ -259,6 +260,20 @@ describe("Homie device", function()
 
     end)
 
+    describe("default attribute", function()
+
+      it("is not required", function()
+        prop.default = nil
+        assert(D._validate_property(prop, node, dev))
+      end)
+
+      it("must pass validation", function()
+        prop.default = "not a number"
+        assert(not D._validate_property(prop, node, dev))
+      end)
+
+    end)
+
   end)  -- validate_property()
 
 
@@ -309,7 +324,7 @@ describe("Homie device", function()
 
     it("sets the qmtt topic for the property", function()
       assert(D._validate_properties(props, node, dev))
-      assert.equals("homie/mydev//mynode/propid", props.propid.topic)
+      assert.equals("homie/mydev/mynode/propid", props.propid.topic)
     end)
 
     it("sets the related node and device properties", function()
@@ -675,6 +690,8 @@ describe("Homie device", function()
       end)
 
       it("id property validation", function()
+        dev.broadcast = nil
+
         assert.has.no.error(function()
           dev.id = "some-id"  -- valid
           D.new(dev)
@@ -718,11 +735,11 @@ describe("Homie device", function()
           local mqtt_client = dev.mqtt
           mqtt_client.acknowledge = function() return true end
           -- call handler with parameters as done by the MQTT client
-          dev.broadcast[bt](msg, mqtt_client)
+          dev.broadcast_match[1].handler(msg, mqtt_client)
+  -- TODO: this is flaky...
           assert.equal(dev, delivered[1])
           assert.equal(msg, delivered[2])
-          assert.equal(dev.mqtt, delivered[3])
-          assert.equal(3, delivered.n)
+          assert.equal(2, delivered.n)
         end)
 
         it("handler acknowledges received message", function()
@@ -736,7 +753,7 @@ describe("Homie device", function()
             return true
           end
           -- call handler with parameters as done by the MQTT client
-          dev.broadcast[bt](msg, mqtt_client)
+          dev.broadcast_match[1].handler(msg, mqtt_client)
         end)
 
       end)

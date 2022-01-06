@@ -1,7 +1,10 @@
 local mqtt = require "mqtt"
 local stringx = require "pl.stringx"
-local utils = require "pl.utils"
+local pl_utils = require "pl.utils"
 local log = require("logging").defaultLogger()
+local Semaphore = require "copas.semaphore"
+local copas = require "copas"
+local utils = require "homie.utils"
 
 -- Node implementation ---------------------------------------------------------
 local Node = {}
@@ -25,27 +28,33 @@ end
 -- @return nothing
 function Property:rset(pvalue)
   if not self.settable then
-    log:warn("attempt to set a non-settable property '%s/%s/%s'",
-            self.device.base_topic, self.node.id, self.id)
+    log:warn("[rset] attempt to set a non-settable property '%s' (ignoring)",
+            self.topic)
     return nil, "property is not settable"
   end
 
-  -- TODO: if prop is non-retained ignore incoming values while the device is still in "init" phase
-  -- How about after reconnecting?
+  if not self.retained and self.device.state == self.device.states.init then
+    -- if prop is non-retained ignore incoming values while the device is still
+    -- in "init" phase.
+    log:debug("[rset] skipping non-retained property in init phase '%s'", self.topic)
+    return
+  end
 
   local value, err = self:unpack(pvalue)
   if err then -- note: check err, not value!
-    log:warn("remote device tried setting '%s/%s/%s' with a bad value that failed unpacking: %s",
-            self.device.base_topic, self.node.id, self.id, err)
+    log:warn("[rset] remote device tried setting '%s' with a bad value that failed unpacking: %s",
+            self.topic, err)
     return nil, "bad value"
   end
 
   local ok, err = self:validate(value)
   if not ok then
-    log:warn("remote device tried setting '%s/%s/%' with a bad value: %s",
-            self.device.base_topic, self.node.id, self.id, err)
+    log:warn("[rset] remote device tried setting '%s' with a bad value: %s",
+            self.topic, err)
     return nil, "bad value"
   end
+
+  log:debug("[rset] setting '%s = %s'", self.topic, pvalue)
   self:set(value)
 end
 
@@ -254,7 +263,7 @@ do
   --- Checks an (unpacked) value. Base implementation
   -- only checks format. Override for more validation checks.
   -- @param value the (unpacked) value to validate
-  -- @retrun true if ok, nil+err if not.
+  -- @return true if ok, nil+err if not.
   function Property:validate(value)
     return validators[self.datatype](self, value)
   end
@@ -370,12 +379,22 @@ end
 
 -- update(value) validates and updates local .value and send mqtt message. No need to
 -- override. Throws an error if either validation or packing fails.
+--
+-- NOTE: if the property is NOT 'retained', then `force` will always be set to `true`.
 -- @param value the new (unpacked) value to set
+-- @param force boolean, set to truthy to always send an update
 -- @return nothing
-function Property:update(value)
+function Property:update(value, force)
   assert(self:validate(value))
-  if self:values_same(value, self:get()) then
-    return -- no need for updates
+  if not self.retained then
+    -- if not retained then always update
+    force = true
+  end
+
+  if not force then
+    if self:values_same(value, self:get()) then
+      return -- no need for updates
+    end
   end
 
   local pvalue = assert(self:pack(value))
@@ -464,13 +483,12 @@ end
 -- wraps a broadcast handler function.
 -- does the acknowledge, calls the handler while injuecting 'self' (the device).
 local function create_broadcast_handler(device, handler)
-  return function(msg, mqttclient)
-    assert(mqttclient == device.mqtt, "mqtt client instance mismatch!")
-    local ok, err = mqttclient:acknowledge(msg)
+  return function(msg)
+    local ok, err = device.mqtt:acknowledge(msg)
     if not ok then
       log:error("failed to acknowledge broadcast message: %s", err)
     end
-    return handler(device, msg, mqttclient)
+    return handler(device, msg)
   end
 end
 
@@ -485,7 +503,7 @@ local function validate_format(datatype, format)
 
   -- we're also allowing percent dattype here
   if datatype == "integer" or datatype == "float" or datatype == "percent" then
-    local min, max = utils.splitv(format, ":", 2)
+    local min, max = pl_utils.splitv(format, ":", 2)
     if not min or not max then
       return nil, "bad min:max format specified"
     end
@@ -576,8 +594,15 @@ local function validate_property(prop)
       prop.unit = "%"
     else
       if prop.unit ~= "%" then
-        return nil, "expected `property.unit` to be a string for datatype 'percent', if given"
+        return nil, "expected `property.unit` to be '%' for datatype 'percent', if given"
       end
+    end
+  end
+
+  if prop.default ~= nil then
+    local ok, err = prop:validate(prop.default)
+    if not ok then
+      return nil, "bad default value: " .. err
     end
   end
 
@@ -594,6 +619,12 @@ local function validate_property(prop)
         device = true,
         topic = true,
         super = true,
+        default = true,
+        unpack = true,
+        set = true,
+        validate = true,
+        values_same = true,
+        pack = true,
       })[key] then
       return nil, "property contains unknown key '" .. tostring(key) .. "'"
     end
@@ -626,7 +657,7 @@ local function validate_properties(props, node, device)
     prop.id = propid
     prop.node = assert(node, "node parameter is missing")
     prop.device = assert(device, "device parameter is missing")
-    prop.topic = device.base_topic .. "/" .. node.id .. "/" .. propid
+    prop.topic = device.base_topic .. node.id .. "/" .. propid
     setmetatable(prop, Property)
     prop.super = Property
 
@@ -798,28 +829,55 @@ function Device:__init()
   -- base_topic
   self.base_topic = self.domain .. "/" .. self.id .. "/"
 
+  -- broker state (recover state from broker on initialization)
+  if self.broker_state == nil then
+    self.broker_state = false
+  end
+  if self.broker_state ~= false then
+    assert(type(self.broker_state) == "number" and self.broker_state > 0,
+          "expected 'broker_state' to be false, or a number greater than 0")
+  end
+
   -- broadcast subscriptions
   local bc = self.broadcast or {}
   self.broadcast = {}
+  self.broadcast_match = {}
   assert(type(bc) == "table", "expected 'broadcast' to be a table")
   for topic, handler in pairs(bc) do
     topic = assert(validate_broadcast_topic(self, topic))
     handler = assert(type(handler) == "function" and handler, "expected broadcast handler to be a function")
-    -- inject 'self' as first parameter on call backs
-    self.broadcast[topic] = create_broadcast_handler(self, handler)
+
+    self.broadcast[topic] = true
+    self.broadcast_match[#self.broadcast_match+1] = {
+      pattern = mqtt.compile_topic_pattern(topic),
+      handler = create_broadcast_handler(self, handler), -- inject 'self' as first parameter on call backs
+    }
   end
 
   -- Validate device and nodes
   assert(validate_device(self))
 
-  -- generate subscriptions for settable properties
+  -- generate subscriptions for settable and own properties
   self.settable_subscriptions = {}
+  self.own_topic_subscriptions = {}
   for nodeid, node in pairs(self.nodes) do
     for propid, prop in pairs(node.properties) do
+      -- own device topics
+      local handler = function(packet)
+        -- handler only used during "init" stage, to collect stored state from
+        -- the broker. Acknowledge and set initial value.
+        self.mqtt:acknowledge(packet)
+        log:info("restoring state from broker for '%s'", prop.topic)
+        prop.rset(prop, packet.payload)
+      end
+      self.own_topic_subscriptions[prop.topic] = handler
+
+      -- handlers for settable topics
       if prop.settable then
-        local topic = self.base_topic .. nodeid .. "/" .. propid .. "/set"
-        local handler = function(packet, mqttclient)
-          mqttclient:acknowledge(packet)
+        local topic = prop.topic .. "/set"
+        local handler = function(packet)
+          -- acknowledge packet and invoke property-setter
+          self.mqtt:acknowledge(packet)
           prop.rset(prop, packet.payload)
         end
         self.settable_subscriptions[topic] = handler
@@ -830,22 +888,114 @@ function Device:__init()
   -- Instantiate mqtt device
   self.mqtt = mqtt.client {
     uri = self.uri,
-    clean = true,
+    id = self.id,
+    -- TODO: fix clean session stuff
+    clean = false, --true,  -- only for first connect, after "init" phase to false
     reconnect = true,
     will = {
-      topic = self.base_topic.."/"..self.id.."/$state",
+      topic = self.base_topic .. "$state",
       payload = self.states.lost,
       qos = 1,
       retain = true,
     }
   }
+
+  do -- make mqtt device async for incoming packets
+    local handle_received_packet = self.mqtt.handle_received_packet
+
+    -- replace client handler; create a new thread for each packet received
+    self.mqtt.handle_received_packet = function(mqttdevice, packet)
+      copas.addthread(handle_received_packet, mqttdevice, packet)
+    end
+  end
+
+  -- set initial state
+  self.state = nil
 end
+
+
+function Device:message_handler(msg)
+  --print("message: ", require("pl.pretty").write(msg))
+  local handler
+
+  if self.accept_updates then
+    handler = self.settable_subscriptions[msg.topic]
+  end
+
+  if not handler and self.state == self.states.init then
+    -- check our own topics to restore state from broker
+    handler = self.own_topic_subscriptions[msg.topic]
+  end
+
+  if handler then
+    return handler(msg)
+  else
+    -- not a property, so try the broadcasts
+    for _, patt in ipairs(self.broadcast_match) do
+      if msg.topic:match(patt.pattern) then
+        patt.handler(msg)
+        handler = true
+      end
+    end
+  end
+
+  if not handler then
+    log:warn("received unknown topic: %s", msg.topic)
+  end
+end
+
 
 --- Method to verify initial values. Can be used to verify values received from
 -- broker, or to just initialize values. When this returns the values must be in
 -- a consistent state. This is only called on device start, not on reconnects.
+-- Default behaviour is to keep existing state
 function Device:verify_initial_values()
   -- override in instances
+  for nodeid, node in pairs(self.nodes) do
+    for propid, prop in pairs(node.properties) do
+      local v = prop:get()
+      if v == nil then v = prop.default end
+      local ok, err = prop:validate(v)
+      if not ok then
+        log:error("no acceptable value available for property '%s': %s", prop.topic, err)
+      else
+        prop:set(v)
+      end
+    end
+  end
+end
+
+
+-- Push every topic we have including device description etc, to the broker
+function Device:publish_device()
+  local topics = {}
+  topics[self.base_topic .. "$homie"] = self.homie
+  topics[self.base_topic .. "$name"] = self.name
+  --topics[self.base_topic .. "$state"] =  -- not publishing this here
+  topics[self.base_topic .. "$extensions"] = ""
+  topics[self.base_topic .. "$implementation"] = self.implementation
+  local nds = {}
+  for nodeid, node in pairs(self.nodes) do
+    nds[#nds+1] =  nodeid
+    topics[self.base_topic .. nodeid .."/$name"] = node.name
+    topics[self.base_topic .. nodeid .."/$type"] = node.type
+    local props = {}
+    for propid, prop in pairs(node.properties) do
+      topics[prop.topic.."/$name"] = prop.name
+      topics[prop.topic.."/$datatype"] = prop.datatype
+      topics[prop.topic.."/$format"] = prop.format
+      topics[prop.topic.."/$settable"] = tostring(prop.settable)
+      topics[prop.topic.."/$retained"] = tostring(prop.retained)
+      topics[prop.topic.."/$unit"] = prop.unit
+      if prop.retained then
+        topics[prop.topic] = prop:pack(prop:get())
+      end
+    end
+    topics[self.base_topic .. nodeid .."/$properties"] = table.concat(props,",")
+  end
+  topics[self.base_topic .. "$nodes"] = table.concat(nds, ",")
+
+  return utils.publish_topics(self.mqtt, topics, 60)
 end
 
 
@@ -855,6 +1005,10 @@ end
 -- @param retained the retain flag to use when sending
 -- @return nothing
 function Device:send_property_update(topic, pvalue, retained)
+  if not self.send_updates then
+    -- in init phase we do not update
+    return
+  end
 
   -- non-retained messages should be dropped if not connected
   -- retained ones should be queued, and coalesced.
@@ -865,26 +1019,126 @@ function Device:send_property_update(topic, pvalue, retained)
     payload = pvalue,
     qos = 1,
     retain = retained,
+    callback = function(...)
+      -- TODO: implement, but what? timeout reporting?
+    end
+  }
+end
+
+
+--- Set a state. Waits for confirmation.
+function Device:set_state(newstate, timeout)
+  timeout = timeout or 30
+  local s = Semaphore.new(1, 0, timeout)
+
+  log:info("Setting device state: '%s%s = %s'", self.base_topic, "$state", self.state)
+  self.mqtt:publish {
+    topic = self.base_topic .. "$state",
+    payload = self.states[newstate],
+    qos = 1,
+    retain = true,
+    callback = function()
+      s:give(1)
+    end,
   }
 
+  local ok, err = s:take(1)
+  if not ok then
+    log:error("Failed setting device state '%s%s = %s', error: %s", self.base_topic, "$state", self.state, err)
+  else
+    self.state = newstate
+  end
+
+  return ok, err
+end
+
+
+function Device:connect_handler(connack)
+  if connack.rc ~= 0 then
+    return -- connection failed, exit and wait for reconnect
+  end
+
+  if self.state ~= self.states.init then
+    -- we're reconnecting after a failure, overwrite 'will' with current state
+    self:set_state(self.state)
+    return -- exit here, not re-publishing everything
+  end
+
+  -- we're connected for the first time, so start initialization procedure
+  local ok = self:set_state(self.states.init)
+  if not ok then return end
+
+  -- collect state from broker if set to
+  if self.broker_state then
+    local ok = utils.subscribe_topics(self.mqtt, self.own_topic_subscriptions, false, 60)
+    if not ok then return end
+
+    -- wait to receive all updates
+    copas.sleep(self.broker_state)
+
+    -- unsubscribe from own topics, since by now we received the stored state from the broker
+    local ok = utils.subscribe_topics(self.mqtt, self.own_topic_subscriptions, true, 60)
+    if not ok then return end
+  end
+
+  -- verify initial values receieved, or overwrite values with read config from file etc
+  self:verify_initial_values()
+
+  -- Publish all topics
+  self.send_updates = true
+  self:publish_device(60)
+  if not ok then
+    self.send_updates = false
+    return
+  end
+
+  -- subscribe to settable topics
+  self.accept_updates = true
+  local ok = utils.subscribe_topics(self.mqtt, self.settable_subscriptions, false, 60)
+  if not ok then
+    self.accept_updates = false
+    self.send_updates = false
+    return
+  end
+
+  -- set state to 'ready'
+  local ok = self:set_state(self.states.ready)
+  if not ok then
+    self.accept_updates = false
+    self.send_updates = false
+    return
+  end
+
+  -- finalize init phase
+  self.state = self.states.ready
+  self.mqtt.opts.clean = false
 end
 
 
 function Device:start()
-    -- connect
-    -- subscribe to own property topics
-    -- wait for timeout and updates
-    --    - clear unknown items received
-    --    - register last state received from broker
-    -- unsubscribe own property topics
-    -- subscribe to own broadcast and settable topics
-  self:verify_initial_values()
+  -- set initial state
+  self.state = self.states.init
+  self.send_updates = false
+  self.accept_updates = false
+  log:debug("starting homie device '%s'", self.id)
+
+  self.mqtt:on {
+    connect = function(connack)
+      self:connect_handler(connack)
+    end,
+    message = function(msg)
+      self:message_handler(msg)
+    end,
+  }
 
   require("mqtt.loop").add(self.mqtt)
 end
 
+
+-- stops the device cleanly
 function Device:stop()
-  self.mqtt:shutdown()
+  self:set_state(self.states.disconnected)
+  self.mqtt:shutdown() -- disables any reconnects
 end
 
 
@@ -904,39 +1158,3 @@ if _G._TEST then
 end
 
 return Device
-
---[[
-local dev = {
-  id = "mydevice",
-  domain = "homie" -- optional
-  name = "my refridgerator in the kitchen",  -- friendly name
-  broadcast = {
-    -- hash-table of broadcast subscriptions, with handlers; either relative, or fully
-    -- qualified topics. will be updated to fully-qualified
-  },
-  nodes = {
-    nodeid = {
-      name = "friendly node name",
-      type = "type description",
-      properties = {
-        propid = { -- value goes directly here
-          name = "fiendly prop name",
-          datatype = "integer, float, boolean, string, enum, color",
-          -- optionals and their defaults
-          settable = false,
-          retained = true, -- after changing to false retained ones must be deleted?
-          format = { -- has a different format on the wire!!!
-            -- float/integer:  "[min]:[max]"
-            min = 0, --minimum for float/integer
-            max = 100, -- maximum for float/integer
-            -- enum; "one,two,three"
-            enum = { "one", "two", "three", one = "one", two = "two", three = "three" },
-
-          },
-          unit = nil,
-        }
-      }
-    }
-  }
-}
---]]

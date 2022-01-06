@@ -31,6 +31,7 @@ build = {
    type = "builtin",
    modules = {
       ["homie.meta"] = "src/homie/meta.lua",
+      ["homie.utils"] = "src/homie/utils.lua",
       ["homie.device"] = "src/homie/device.lua",
       ["homie.controller"] = "src/homie/controller.lua",
    },

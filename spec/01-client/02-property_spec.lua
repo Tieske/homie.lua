@@ -13,8 +13,7 @@ describe("Homie device", function()
 
   local prop
   before_each(function()
-    local Device = require "homie.device"
-    prop = setmetatable({}, Device._Property)
+    prop = setmetatable({}, D._Property)
   end)
 
 
@@ -275,7 +274,10 @@ describe("Homie device", function()
       prop.settable = true
       prop.datatype = "integer"
       prop.node = { id = "nodeid" }
-      prop.device = { base_topic = "homie/devid/" }
+      prop.device = {
+        states = { init = "init" },
+        base_topic = "homie/devid/"
+      }
     end)
 
     it("doesn't set on non-settable properties", function()
@@ -491,6 +493,21 @@ describe("Homie device", function()
       local s = stub(prop.device, "send_property_update")
       prop:update(prop:get())
       assert.stub(s).was.Not.called()
+    end)
+
+    it("updates if same, but forced", function()
+      prop:update(123)
+      local s = stub(prop.device, "send_property_update")
+      prop:update(prop:get(), true)
+      assert.stub(s).was.called()
+    end)
+
+    it("always updates if not retained", function()
+      prop.retained = false
+      prop:update(123)
+      local s = stub(prop.device, "send_property_update")
+      prop:update(prop:get(), false) -- update to same value, not forced
+      assert.stub(s).was.called()
     end)
 
   end)
