@@ -8,9 +8,9 @@ local github_repo_name = "homie.lua"
 package = package_name
 version = package_version.."-"..rockspec_revision
 source = {
-  url = "git://github.com/"..github_account_name.."/"..github_repo_name..".git",
-  branch = (package_version == "cvs") and "master" or nil,
-  tag = (package_version ~= "cvs") and package_version or nil,
+   url = "git://github.com/"..github_account_name.."/"..github_repo_name..".git",
+   branch = (package_version == "cvs") and "master" or nil,
+   tag = (package_version ~= "cvs") and package_version or nil,
 }
 description = {
    summary = "Homie (an MQTT convention for IoT/M2M) implementation in Lua",
@@ -34,6 +34,7 @@ build = {
       ["homie.utils"] = "src/homie/utils.lua",
       ["homie.device"] = "src/homie/device.lua",
       ["homie.controller"] = "src/homie/controller.lua",
+      ["homie.devices.presence"] = "src/homie/devices/presence.lua",
    },
    copy_directories = {
       "docs",
