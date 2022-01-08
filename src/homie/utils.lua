@@ -108,8 +108,11 @@ end
 
 
 --- Publishes a list of topics. Will not return until done/failed.
+-- Note: the defaults are; `retain = true`,
+-- `qos = 1`, and `callback` can't be set (will always be overridden).
 -- @param mqtt the mqtt device
--- @param list table payloads indexed by topics
+-- @param list table payloads indexed by topics (payload can also be a table with
+-- options see mqtt_client:publish)
 -- @return true or nil+err
 function _M.publish_topics(mqtt, list, timeout)
   assert(timeout, "timeout is a required parameter")
@@ -120,18 +123,23 @@ function _M.publish_topics(mqtt, list, timeout)
 
   local s = Semaphore.new(10^9)
   local q = Queue.new()
+  local cb = function(...)
+    s:give(1)
+  end
 
   for topic, payload in pairs(list) do
+    if type(payload) == "string" then
+      payload = { payload = payload }
+    end
+    payload.topic = topic
+    payload.callback = cb
+
+    -- set alternative defaults
+    if payload.retain == nil then payload.retain = true end
+    if payload.qos == nil then payload.qos = 1 end
+
     q:push(function()
-      return mqtt:publish {
-        topic = topic,
-        payload = payload,
-        qos = 1,
-        callback = function(...)
-          s:give(1)
-          --log:info("published topic '%s' successfully", topic)
-        end
-      }
+      return mqtt:publish(payload)
     end)
   end
 
