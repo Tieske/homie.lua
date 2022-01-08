@@ -27,17 +27,24 @@ end
 -- @param pvalue string, the packed value as received.
 -- @return nothing
 function Property:rset(pvalue)
-  if not self.settable then
-    log:warn("[rset] attempt to set a non-settable property '%s' (ignoring)",
-            self.topic)
-    return nil, "property is not settable"
-  end
+  if self.device.state == self.device.states.init then
+    -- device is in init phase, so we might be restoring state
+    if not self.retained then
+      -- if prop is non-retained ignore incoming values while the device is still
+      -- in "init" phase.
+      log:debug("[rset] skipping non-retained property in init phase '%s'", self.topic)
+      return
+    end
 
-  if not self.retained and self.device.state == self.device.states.init then
-    -- if prop is non-retained ignore incoming values while the device is still
-    -- in "init" phase.
-    log:debug("[rset] skipping non-retained property in init phase '%s'", self.topic)
-    return
+    -- despite maybe not being 'settable' we still restore state here in init phase
+
+  else
+    -- not in init phase, so operational, block setting attempt if not settable
+    if not self.settable then
+      log:warn("[rset] attempt to set a non-settable property '%s' (ignoring)",
+              self.topic)
+      return nil, "property is not settable"
+    end
   end
 
   local value, err = self:unpack(pvalue)
@@ -874,6 +881,9 @@ function Device:__init()
 
       -- handlers for settable topics
       if prop.settable then
+        -- TODO: should we subscribe to non-settable props as well?
+        -- the rset method will block the updates, and provide a nice log message
+        -- so that might provide better user feedback.
         local topic = prop.topic .. "/set"
         local handler = function(packet)
           -- acknowledge packet and invoke property-setter
@@ -951,6 +961,8 @@ end
 -- Default behaviour is to keep existing state
 function Device:verify_initial_values()
   -- override in instances
+  -- TODO: this should have an equivalent on the `node` objects
+  -- and the default should be to call that method on every node (if present)
   for nodeid, node in pairs(self.nodes) do
     for propid, prop in pairs(node.properties) do
       local v = prop:get()
