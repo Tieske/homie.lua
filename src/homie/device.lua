@@ -993,6 +993,7 @@ function Device:publish_device()
     topics[self.base_topic .. nodeid .."/$type"] = node.type
     local props = {}
     for propid, prop in pairs(node.properties) do
+      props[#props+1] = propid
       topics[prop.topic.."/$name"] = prop.name
       topics[prop.topic.."/$datatype"] = prop.datatype
       topics[prop.topic.."/$format"] = prop.format
