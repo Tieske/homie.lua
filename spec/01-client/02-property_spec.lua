@@ -290,7 +290,7 @@ describe("Homie device", function()
     it("unpacks received values", function()
       local s = stub(prop, "set")
       prop:rset("123")
-      assert.stub(s).was.called.with(prop, 123)
+      assert.stub(s).was.called.with(prop, 123, true)
     end)
 
     it("validates received values", function()

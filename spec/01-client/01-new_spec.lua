@@ -735,8 +735,11 @@ describe("Homie device", function()
           local mqtt_client = dev.mqtt
           mqtt_client.acknowledge = function() return true end
           -- call handler with parameters as done by the MQTT client
-          dev.broadcast_match[1].handler(msg, mqtt_client)
-  -- TODO: this is flaky...
+          -- (calling them all, since we don't know order)
+          for i, matcher in ipairs(dev.broadcast_match) do
+            matcher.handler(msg, mqtt_client)
+          end
+          assert.is.table(delivered)
           assert.equal(dev, delivered[1])
           assert.equal(msg, delivered[2])
           assert.equal(2, delivered.n)

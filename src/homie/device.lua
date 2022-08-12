@@ -1,3 +1,5 @@
+--- Homie device object.
+
 local mqtt = require "mqtt"
 local stringx = require "pl.stringx"
 local pl_utils = require "pl.utils"
@@ -22,7 +24,7 @@ end
 
 
 --- Called when remotely setting the value.
--- Executes: unpack, validate, set, in that order.
+-- Executes: `Property:unpack`, `Property:validate`, `Property:set`, in that order.
 -- Logs an error if something is wrong, and doesn't change the value in that case.
 -- @param pvalue string, the packed value as received.
 -- @return nothing
@@ -32,7 +34,7 @@ function Property:rset(pvalue)
     if not self.retained then
       -- if prop is non-retained ignore incoming values while the device is still
       -- in "init" phase.
-      log:debug("[rset] skipping non-retained property in init phase '%s'", self.topic)
+      log:debug("[homie] rset: skipping non-retained property in init phase '%s'", self.topic)
       return
     end
 
@@ -41,7 +43,7 @@ function Property:rset(pvalue)
   else
     -- not in init phase, so operational, block setting attempt if not settable
     if not self.settable then
-      log:warn("[rset] attempt to set a non-settable property '%s' (ignoring)",
+      log:warn("[homie] rset: attempt to set a non-settable property '%s' (ignoring)",
               self.topic)
       return nil, "property is not settable"
     end
@@ -49,20 +51,20 @@ function Property:rset(pvalue)
 
   local value, err = self:unpack(pvalue)
   if err then -- note: check err, not value!
-    log:warn("[rset] remote device tried setting '%s' with a bad value that failed unpacking: %s",
+    log:warn("[homie] rset: remote device tried setting '%s' with a bad value that failed unpacking: %s",
             self.topic, err)
     return nil, "bad value"
   end
 
   local ok, err = self:validate(value)
   if not ok then
-    log:warn("[rset] remote device tried setting '%s' with a bad value: %s",
+    log:warn("[homie] rset: remote device tried setting '%s' with a bad value: %s",
             self.topic, err)
     return nil, "bad value"
   end
 
-  log:debug("[rset] setting '%s = %s'", self.topic, pvalue)
-  self:set(value)
+  log:debug("[homie] rset: setting '%s = %s'", self.topic, pvalue)
+  self:set(value, true)
 end
 
 
@@ -281,8 +283,9 @@ end
 -- Default just calls `update`. Implement actual changing device behaviour here
 -- by overriding. When overriding, it should always end by calling `update`.
 -- @param value the (unpacked) value to set
+-- @tparam bool remote if truthy, the change came in over MQTT (via `Property:rset`)
 -- @return nothing
-function Property:set(value)
+function Property:set(value, remote)
   self:update(value)
 end
 
@@ -392,7 +395,12 @@ end
 -- @param force boolean, set to truthy to always send an update
 -- @return nothing
 function Property:update(value, force)
+  if self.datatype == "boolean" then
+    value = not not value
+  end
+
   assert(self:validate(value))
+
   if not self.retained then
     -- if not retained then always update
     force = true
@@ -417,7 +425,7 @@ local Device = {}
 Device.__index = Device
 require("homie.meta")(Device)
 
-log:info("loaded homie.lua library; Device (version %s)", Device._VERSION)
+log:info("[homie] loaded homie.lua library; Device (version %s)", Device._VERSION)
 
 -- device states enumeration
 Device.states = setmetatable({
@@ -493,7 +501,7 @@ local function create_broadcast_handler(device, handler)
   return function(msg)
     local ok, err = device.mqtt:acknowledge(msg)
     if not ok then
-      log:error("failed to acknowledge broadcast message: %s", err)
+      log:error("[homie] failed to acknowledge broadcast message: %s", err)
     end
     return handler(device, msg)
   end
@@ -635,6 +643,10 @@ local function validate_property(prop)
       })[key] then
       return nil, "property contains unknown key '" .. tostring(key) .. "'"
     end
+  end
+
+  if prop.datatype == "boolean" then
+    prop.value = not not prop.value
   end
 
   return prop
@@ -874,7 +886,7 @@ function Device:__init()
         -- handler only used during "init" stage, to collect stored state from
         -- the broker. Acknowledge and set initial value.
         self.mqtt:acknowledge(packet)
-        log:info("restoring state from broker for '%s'", prop.topic)
+        log:info("[homie] restoring state from broker for '%s'", prop.topic)
         prop.rset(prop, packet.payload)
       end
       self.own_topic_subscriptions[prop.topic] = handler
@@ -910,15 +922,6 @@ function Device:__init()
     }
   }
 
-  do -- make mqtt device async for incoming packets
-    local handle_received_packet = self.mqtt.handle_received_packet
-
-    -- replace client handler; create a new thread for each packet received
-    self.mqtt.handle_received_packet = function(mqttdevice, packet)
-      copas.addthread(handle_received_packet, mqttdevice, packet)
-    end
-  end
-
   -- set initial state
   self.state = nil
 end
@@ -950,7 +953,7 @@ function Device:message_handler(msg)
   end
 
   if not handler then
-    log:warn("received unknown topic: %s", msg.topic)
+    log:warn("[homie] received unknown topic: %s", msg.topic)
   end
 end
 
@@ -969,7 +972,7 @@ function Device:verify_initial_values()
       if v == nil then v = prop.default end
       local ok, err = prop:validate(v)
       if not ok then
-        log:error("no acceptable value available for property '%s': %s", prop.topic, err)
+        log:error("[homie] no acceptable value available for property '%s': %s", prop.topic, err)
       else
         prop:set(v)
       end
@@ -984,7 +987,7 @@ function Device:publish_device()
   topics[self.base_topic .. "$homie"] = self.homie
   topics[self.base_topic .. "$name"] = self.name
   --topics[self.base_topic .. "$state"] =  -- not publishing this here
-  topics[self.base_topic .. "$extensions"] = ""
+  topics[self.base_topic .. "$extensions"] = "none" -- an empty string is not stored on MQTT broker
   topics[self.base_topic .. "$implementation"] = self.implementation
   local nds = {}
   for nodeid, node in pairs(self.nodes) do
@@ -1044,7 +1047,7 @@ function Device:set_state(newstate, timeout)
   timeout = timeout or 30
   local s = Semaphore.new(1, 0, timeout)
 
-  log:info("Setting device state: '%s%s = %s'", self.base_topic, "$state", self.state)
+  log:info("[homie] Setting device state: '%s%s = %s'", self.base_topic, "$state", self.state)
   self.mqtt:publish {
     topic = self.base_topic .. "$state",
     payload = self.states[newstate],
@@ -1057,7 +1060,7 @@ function Device:set_state(newstate, timeout)
 
   local ok, err = s:take(1)
   if not ok then
-    log:error("Failed setting device state '%s%s = %s', error: %s", self.base_topic, "$state", self.state, err)
+    log:error("[homie] Failed setting device state '%s%s = %s', error: %s", self.base_topic, "$state", self.state, err)
   else
     self.state = newstate
   end
@@ -1133,7 +1136,7 @@ function Device:start()
   self.state = self.states.init
   self.send_updates = false
   self.accept_updates = false
-  log:debug("starting homie device '%s'", self.id)
+  log:debug("[homie] starting homie device '%s'", self.id)
 
   self.mqtt:on {
     connect = function(connack)
