@@ -1,0 +1,1149 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Homie for Lua</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Homie.lua</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Fields">Fields</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/homie.controller.html">homie.controller</a></li>
+  <li><strong>homie.device</strong></li>
+  <li><a href="../modules/homie.utils.html">homie.utils</a></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="../topics/LICENSE.html">LICENSE</a></li>
+  <li><a href="../topics/README.md.html">README</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/example.lua.html">example.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>homie.device</code></h1>
+<p>Homie device implementation.</p>
+<p> This consists of a <code>Device</code> instance which can contain <code>Node</code> instances, which
+ in turn can hold <code>Property</code> instances.</p>
+
+<p> The device implementation will take care of homie related specifics.</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#Device.new">Device.new (opts)</a></td>
+	<td class="summary">Instantiate a new Homie device.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device:__init">Device:__init ()</a></td>
+	<td class="summary">Initializer, called upon instantiation.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device:send_property_update">Device:send_property_update (topic, pvalue[, retained])</a></td>
+	<td class="summary">Send an MQTT message with the value update.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device:set_state">Device:set_state (newstate[, timeout=30])</a></td>
+	<td class="summary">Sets a device state.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device:start">Device:start ()</a></td>
+	<td class="summary">Starts the device.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device:stop">Device:stop ()</a></td>
+	<td class="summary">Stops the device cleanly.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device:verify_initial_values">Device:verify_initial_values ()</a></td>
+	<td class="summary">Method to verify initial values.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:get">Property:get ()</a></td>
+	<td class="summary">Gets the current value.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:pack">Property:pack (value)</a></td>
+	<td class="summary">Serializes a value to send over MQTT.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:rset">Property:rset (pvalue)</a></td>
+	<td class="summary">Called when remotely setting the value, through the MQTT topic.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:set">Property:set (value[, remote=false])</a></td>
+	<td class="summary">Local application code can set a value through this method.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:unpack">Property:unpack (value)</a></td>
+	<td class="summary">Deserializes a value received over MQTT.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:update">Property:update (value[, force=false])</a></td>
+	<td class="summary">Validates the value and updates <a href="../modules/homie.device.html#Property.value">Property.value</a>.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:validate">Property:validate (value)</a></td>
+	<td class="summary">Checks an (unpacked) value.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property:values_same">Property:values_same (value1, value2)</a></td>
+	<td class="summary">Compares 2 (unpacked) values for equality.</td>
+	</tr>
+</table>
+<h2><a href="#Fields">Fields</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#Device.base_topic">Device.base_topic</a></td>
+	<td class="summary">The device base-topic; domain + device id (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.broadcast">Device.broadcast</a></td>
+	<td class="summary">Hash-table with broadcast handler functions, indexed by their broadcast topic (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.broker_state">Device.broker_state</a></td>
+	<td class="summary">Recover device state from the broker?</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.domain">Device.domain</a></td>
+	<td class="summary">The homie domain to use (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.extensions">Device.extensions</a></td>
+	<td class="summary">The homie extensions supported by the device (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.homie">Device.homie</a></td>
+	<td class="summary">Homie version implemented by <code>Device</code> (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.id">Device.id</a></td>
+	<td class="summary">The device id, as it appears in the MQTT topic (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.implementation">Device.implementation</a></td>
+	<td class="summary">The homie implementation identifier (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.mqtt">Device.mqtt</a></td>
+	<td class="summary">The underlying <code>luamqtt</code> device used for the MQTT communications (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.name">Device.name</a></td>
+	<td class="summary">The name of the device (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.nodes">Device.nodes</a></td>
+	<td class="summary">Hash-table with the Device's nodes indexed by <a href="../modules/homie.device.html#Node.id">Node.id</a> (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.state">Device.state</a></td>
+	<td class="summary">Current device status, see <a href="../modules/homie.device.html#Device.states">Device.states</a> (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.states">Device.states</a></td>
+	<td class="summary">Enum table with possible values for <a href="../modules/homie.device.html#Device.state">Device.state</a>.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Device.uri">Device.uri</a></td>
+	<td class="summary">The mqtt-broker uri to connect to (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Node.device">Node.device</a></td>
+	<td class="summary">The owning <code>Device</code> of the Node (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Node.id">Node.id</a></td>
+	<td class="summary">The node id, as it appears in the MQTT topic (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Node.name">Node.name</a></td>
+	<td class="summary">The name of the Node (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Node.properties">Node.properties</a></td>
+	<td class="summary">Hash-table with the Node's properties indexed by <a href="../modules/homie.device.html#Property.id">Property.id</a> (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Node.super">Node.super</a></td>
+	<td class="summary">The ancestor class (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Node.type">Node.type</a></td>
+	<td class="summary">The type of the Node (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.datatype">Property.datatype</a></td>
+	<td class="summary">The property datatype (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.device">Property.device</a></td>
+	<td class="summary">The owning <code>Device</code> of the property (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.format">Property.format</a></td>
+	<td class="summary">The property format (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.id">Property.id</a></td>
+	<td class="summary">The property id, as it appears in the MQTT topic (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.name">Property.name</a></td>
+	<td class="summary">The name of the property (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.node">Property.node</a></td>
+	<td class="summary">The owning <code>Node</code> of the property (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.retained">Property.retained</a></td>
+	<td class="summary">Is the property a <a href="../modules/homie.device.html#Property.retained">retained</a> value?</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.settable">Property.settable</a></td>
+	<td class="summary">Is the property a <a href="../modules/homie.device.html#Property.settable">settable</a> value?</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.super">Property.super</a></td>
+	<td class="summary">The ancestor class (read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.topic">Property.topic</a></td>
+	<td class="summary">The MQTT topic for the property (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.unit">Property.unit</a></td>
+	<td class="summary">The property unit (string, read-only).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Property.value">Property.value</a></td>
+	<td class="summary">The value of the property, do not use.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "Device.new"></a>
+    <strong>Device.new (opts)</strong>
+    </dt>
+    <dd>
+    Instantiate a new Homie device.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">opts</span> Options table to create the instance from.
+        <ul>
+        <li><span class="parameter">domain</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string[opt="homie/"]</a></span>
+         base domain
+        </li>
+        <li><span class="parameter">id</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string[opt]</a></span>
+         device id. Defaults to <code>homie-xxxxxxx</code> randomized.
+        </li>
+        <li><span class="parameter">state_dir</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string[opt]</a></span>
+         location to save device state file. Ommit to not save/load.
+        </li>
+        </li></ul>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        new device object.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device:__init"></a>
+    <strong>Device:__init ()</strong>
+    </dt>
+    <dd>
+    Initializer, called upon instantiation.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device:send_property_update"></a>
+    <strong>Device:send_property_update (topic, pvalue[, retained])</strong>
+    </dt>
+    <dd>
+    Send an MQTT message with the value update.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">topic</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         to post to
+        </li>
+        <li><span class="parameter">pvalue</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         the packed/serialized value to send over the wire
+        </li>
+        <li><span class="parameter">retained</span>
+            <span class="types"><span class="type">boolean</span></span>
+         the retain flag to use when sending
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device:set_state"></a>
+    <strong>Device:set_state (newstate[, timeout=30])</strong>
+    </dt>
+    <dd>
+    Sets a device state.  Waits for confirmation.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">newstate</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         any of the <a href="../modules/homie.device.html#Device.states">Device.states</a> constants.
+        </li>
+        <li><span class="parameter">timeout</span>
+            <span class="types"><span class="type">number</span></span>
+         timeout in seconds.
+         (<em>default</em> 30)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        success+err
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device:start"></a>
+    <strong>Device:start ()</strong>
+    </dt>
+    <dd>
+    Starts the device.  Publishes the homie description topics and subscriptions,
+ recovers state from the broker if set to do so, and sets status to <code>ready</code>.
+ The device will set up keepalives, and will automatically reconnect if there is
+ a failure.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device:stop"></a>
+    <strong>Device:stop ()</strong>
+    </dt>
+    <dd>
+    Stops the device cleanly.  Sets device state to <code>disconnected</code>.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device:verify_initial_values"></a>
+    <strong>Device:verify_initial_values ()</strong>
+    </dt>
+    <dd>
+    Method to verify initial values.  Can be used to verify values received from
+ broker, or to just initialize values. When this returns the values must be in
+ a consistent state. This is only called on device start, not on reconnects.
+ Default behaviour is to keep existing state
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property:get"></a>
+    <strong>Property:get ()</strong>
+    </dt>
+    <dd>
+    Gets the current value. </p>
+
+<p> <em>NOTE</em>: during initialization of a device this can return <code>nil</code>!
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+        the (unpacked) value
+    </ol>
+
+
+    <h3>See also:</h3>
+    <ul>
+         <a href="../modules/homie.device.html#Property:unpack">Property:unpack</a>
+    </ul>
+
+
+</dd>
+    <dt>
+    <a name = "Property:pack"></a>
+    <strong>Property:pack (value)</strong>
+    </dt>
+    <dd>
+    Serializes a value to send over MQTT.
+ Override in case of (de)serialization needs. Since this method is only called after
+ <a href="../modules/homie.device.html#Property:validate">Property:validate</a>, it should always succeed. Any reason for not succeeding should
+ be handled when validating.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value</span>
+         the unpacked value to be serialized into a string
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        packed value (string), or nil+err on failure
+    </ol>
+
+
+    <h3>See also:</h3>
+    <ul>
+         <a href="../modules/homie.device.html#Property:unpack">Property:unpack</a>
+    </ul>
+
+
+</dd>
+    <dt>
+    <a name = "Property:rset"></a>
+    <strong>Property:rset (pvalue)</strong>
+    </dt>
+    <dd>
+    Called when remotely setting the value, through the MQTT topic.
+ There should be no need to override this method.
+ This executes: <a href="../modules/homie.device.html#Property:unpack">Property:unpack</a>, <a href="../modules/homie.device.html#Property:validate">Property:validate</a>, <a href="../modules/homie.device.html#Property:set">Property:set</a>, in that order.
+ Logs an error if something is wrong, and doesn't change the value in that case.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pvalue</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         string, the packed value as received.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        <code>true</code> or <code>nil+err</code>
+    </ol>
+
+
+    <h3>See also:</h3>
+    <ul>
+         <a href="../modules/homie.device.html#Property:set">Property:set</a>
+    </ul>
+
+
+</dd>
+    <dt>
+    <a name = "Property:set"></a>
+    <strong>Property:set (value[, remote=false])</strong>
+    </dt>
+    <dd>
+    Local application code can set a value through this method.
+ Default just calls <a href="../modules/homie.device.html#Property:update">Property:update</a>. Implement actual changing device behaviour here
+ by overriding. When overriding, it should always end by calling <a href="../modules/homie.device.html#Property:update">Property:update</a>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value</span>
+         the (unpacked) value to set
+        </li>
+        <li><span class="parameter">remote</span>
+            <span class="types"><span class="type">bool</span></span>
+         if truthy, the change came in over MQTT (via <a href="../modules/homie.device.html#Property:rset">Property:rset</a>)
+         (<em>default</em> false)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property:unpack"></a>
+    <strong>Property:unpack (value)</strong>
+    </dt>
+    <dd>
+    Deserializes a value received over MQTT.
+ Override in case of (de)serialization needs.</p>
+
+<p> <em>NOTE</em>: check return values!! <code>nil</code> is a valid value, so check 2nd return value for errors.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         string value to unpack/deserialize
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        any type of value (including <code>nil</code>), returns an error string as second value in case of errors.
+    </ol>
+
+
+    <h3>See also:</h3>
+    <ul>
+         <a href="../modules/homie.device.html#Property:unpack">Property:unpack</a>
+    </ul>
+
+
+</dd>
+    <dt>
+    <a name = "Property:update"></a>
+    <strong>Property:update (value[, force=false])</strong>
+    </dt>
+    <dd>
+    Validates the value and updates <a href="../modules/homie.device.html#Property.value">Property.value</a>.  Will send the MQTT update message. No need to
+ override. Throws an error if either validation or packing fails.</p>
+
+<p> <em>NOTE</em>: if the property is NOT 'retained', then <code>force</code> will always be set to <code>true</code>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value</span>
+         the new (unpacked) value to set
+        </li>
+        <li><span class="parameter">force</span>
+            <span class="types"><span class="type">bool</span></span>
+         set to truthy to always send an update, even if unchanged.
+         (<em>default</em> false)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property:validate"></a>
+    <strong>Property:validate (value)</strong>
+    </dt>
+    <dd>
+    Checks an (unpacked) value.  Base implementation
+ only checks format. Override for more validation checks.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value</span>
+         the (unpacked) value to validate
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        <code>true</code> if ok, <code>nil+err</code> if not.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property:values_same"></a>
+    <strong>Property:values_same (value1, value2)</strong>
+    </dt>
+    <dd>
+    Compares 2 (unpacked) values for equality.  If old and new values are equal,
+ no updates need to be transmitted. If values are unpacked into complex structures
+ override this to check for equality.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value1</span>
+         the (unpacked) value to compare with the 2nd
+        </li>
+        <li><span class="parameter">value2</span>
+         the (unpacked) value to compare with the 1st
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        boolean
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Fields"></a>Fields</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "Device.base_topic"></a>
+    <strong>Device.base_topic</strong>
+    </dt>
+    <dd>
+    The device base-topic; domain + device id (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.broadcast"></a>
+    <strong>Device.broadcast</strong>
+    </dt>
+    <dd>
+    Hash-table with broadcast handler functions, indexed by their broadcast topic (read-only).
+ The keys (broadcast-topic) will be updated to be fully qualified.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.broker_state"></a>
+    <strong>Device.broker_state</strong>
+    </dt>
+    <dd>
+    Recover device state from the broker?  (false|number, read-only). If a number
+ then it is the time (in seconds) to wait for all state to be returned by the
+ broker (start-up delay).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.domain"></a>
+    <strong>Device.domain</strong>
+    </dt>
+    <dd>
+    The homie domain to use (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.extensions"></a>
+    <strong>Device.extensions</strong>
+    </dt>
+    <dd>
+    The homie extensions supported by the device (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.homie"></a>
+    <strong>Device.homie</strong>
+    </dt>
+    <dd>
+    Homie version implemented by <code>Device</code> (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.id"></a>
+    <strong>Device.id</strong>
+    </dt>
+    <dd>
+    The device id, as it appears in the MQTT topic (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.implementation"></a>
+    <strong>Device.implementation</strong>
+    </dt>
+    <dd>
+    The homie implementation identifier (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.mqtt"></a>
+    <strong>Device.mqtt</strong>
+    </dt>
+    <dd>
+    The underlying <code>luamqtt</code> device used for the MQTT communications (read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.name"></a>
+    <strong>Device.name</strong>
+    </dt>
+    <dd>
+    The name of the device (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.nodes"></a>
+    <strong>Device.nodes</strong>
+    </dt>
+    <dd>
+    Hash-table with the Device's nodes indexed by <a href="../modules/homie.device.html#Node.id">Node.id</a> (read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.state"></a>
+    <strong>Device.state</strong>
+    </dt>
+    <dd>
+    Current device status, see <a href="../modules/homie.device.html#Device.states">Device.states</a> (string, read-only).  Use <a href="../modules/homie.device.html#Device:set_state">Device:set_state</a>
+ to change the value.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.states"></a>
+    <strong>Device.states</strong>
+    </dt>
+    <dd>
+    Enum table with possible values for <a href="../modules/homie.device.html#Device.state">Device.state</a>.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Device.uri"></a>
+    <strong>Device.uri</strong>
+    </dt>
+    <dd>
+    The mqtt-broker uri to connect to (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Node.device"></a>
+    <strong>Node.device</strong>
+    </dt>
+    <dd>
+    The owning <code>Device</code> of the Node (read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Node.id"></a>
+    <strong>Node.id</strong>
+    </dt>
+    <dd>
+    The node id, as it appears in the MQTT topic (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Node.name"></a>
+    <strong>Node.name</strong>
+    </dt>
+    <dd>
+    The name of the Node (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Node.properties"></a>
+    <strong>Node.properties</strong>
+    </dt>
+    <dd>
+    Hash-table with the Node's properties indexed by <a href="../modules/homie.device.html#Property.id">Property.id</a> (read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Node.super"></a>
+    <strong>Node.super</strong>
+    </dt>
+    <dd>
+    The ancestor class (read-only).  Usefull when overriding methods, and needing access to
+ the original methods.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Node.type"></a>
+    <strong>Node.type</strong>
+    </dt>
+    <dd>
+    The type of the Node (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.datatype"></a>
+    <strong>Property.datatype</strong>
+    </dt>
+    <dd>
+    The property datatype (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.device"></a>
+    <strong>Property.device</strong>
+    </dt>
+    <dd>
+    The owning <code>Device</code> of the property (read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.format"></a>
+    <strong>Property.format</strong>
+    </dt>
+    <dd>
+    The property format (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.id"></a>
+    <strong>Property.id</strong>
+    </dt>
+    <dd>
+    The property id, as it appears in the MQTT topic (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.name"></a>
+    <strong>Property.name</strong>
+    </dt>
+    <dd>
+    The name of the property (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.node"></a>
+    <strong>Property.node</strong>
+    </dt>
+    <dd>
+    The owning <code>Node</code> of the property (read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.retained"></a>
+    <strong>Property.retained</strong>
+    </dt>
+    <dd>
+    Is the property a <a href="../modules/homie.device.html#Property.retained">retained</a> value?  (boolean, read-only)
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.settable"></a>
+    <strong>Property.settable</strong>
+    </dt>
+    <dd>
+    Is the property a <a href="../modules/homie.device.html#Property.settable">settable</a> value?  (boolean, read-only)
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.super"></a>
+    <strong>Property.super</strong>
+    </dt>
+    <dd>
+    The ancestor class (read-only).  Usefull when overriding methods, and needing access to
+ the original methods.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.topic"></a>
+    <strong>Property.topic</strong>
+    </dt>
+    <dd>
+    The MQTT topic for the property (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.unit"></a>
+    <strong>Property.unit</strong>
+    </dt>
+    <dd>
+    The property unit (string, read-only).
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Property.value"></a>
+    <strong>Property.value</strong>
+    </dt>
+    <dd>
+    The value of the property, do not use.  Please use <a href="../modules/homie.device.html#Property:get">Property:get</a> and <a href="../modules/homie.device.html#Property:set">Property:set</a> to
+ read/write the value.
+
+
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2022-08-13 12:41:43 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

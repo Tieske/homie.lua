@@ -1,0 +1,255 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Homie for Lua</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Homie.lua</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/homie.controller.html">homie.controller</a></li>
+  <li><a href="../modules/homie.device.html">homie.device</a></li>
+  <li><strong>homie.utils</strong></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="../topics/LICENSE.html">LICENSE</a></li>
+  <li><a href="../topics/README.md.html">README</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/example.lua.html">example.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>homie.utils</code></h1>
+<p>Generic utilities.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#publish_topics">publish_topics (mqtt, list, timeout)</a></td>
+	<td class="summary">Publishes a list of topics.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#subscribe_topics">subscribe_topics (mqtt, list, unsub, timeout)</a></td>
+	<td class="summary">(un)subscribes to/from a list of topics.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#wait_for">wait_for (check[, timeout=30[, init=0.010[, max=1]]])</a></td>
+	<td class="summary">waits for a task to complete.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#wait_for_task">wait_for_task (task[, timeout=30[, cancel]])</a></td>
+	<td class="summary">schedules an async task using <code>copas.addthread</code> and waits for completion.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "publish_topics"></a>
+    <strong>publish_topics (mqtt, list, timeout)</strong>
+    </dt>
+    <dd>
+    Publishes a list of topics.  Will not return until done/failed.
+ Note: the defaults are; <code>retain = true</code>,
+ <code>qos = 1</code>, and <code>callback</code> can't be set (will always be overridden).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mqtt</span>
+            <span class="types"><span class="type">mqtt-device</span></span>
+         the mqtt device
+        </li>
+        <li><span class="parameter">list</span>
+            <span class="types"><span class="type">array</span></span>
+         table payloads indexed by topics (payload can also be a table with
+ options see <code>mqtt_client:publish</code>)
+        </li>
+        <li><span class="parameter">timeout</span>
+            <span class="types"><span class="type">number</span></span>
+         timeout in seconds
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        true or nil+err
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "subscribe_topics"></a>
+    <strong>subscribe_topics (mqtt, list, unsub, timeout)</strong>
+    </dt>
+    <dd>
+    (un)subscribes to/from a list of topics.  Will not return until completely done/failed.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mqtt</span>
+            <span class="types"><span class="type">mqtt-device</span></span>
+         the mqtt device
+        </li>
+        <li><span class="parameter">list</span>
+            <span class="types"><span class="type">array</span></span>
+         table with topics (topics can be in the key or value, as long as only one of them is a string)
+        </li>
+        <li><span class="parameter">unsub</span>
+            <span class="types"><span class="type">bool</span></span>
+         subcribe or unsubscribe
+        </li>
+        <li><span class="parameter">timeout</span>
+            <span class="types"><span class="type">number</span></span>
+         timeout in seconds
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        true or nil+err
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "wait_for"></a>
+    <strong>wait_for (check[, timeout=30[, init=0.010[, max=1]]])</strong>
+    </dt>
+    <dd>
+    waits for a task to complete.  Does exponential backoff while waiting.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">check</span>
+            <span class="types"><span class="type">function</span></span>
+         should return true on completion
+        </li>
+        <li><span class="parameter">timeout</span>
+            <span class="types"><span class="type">number</span></span>
+         time out in seconds
+         (<em>default</em> 30)
+        </li>
+        <li><span class="parameter">init</span>
+            <span class="types"><span class="type">number</span></span>
+         wait in seconds
+         (<em>default</em> 0.010)
+        </li>
+        <li><span class="parameter">max</span>
+            <span class="types"><span class="type">number</span></span>
+         wait in seconds (each try doubles the wait until it hits this value)
+         (<em>default</em> 1)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        true if finished, or nil+timeout
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "wait_for_task"></a>
+    <strong>wait_for_task (task[, timeout=30[, cancel]])</strong>
+    </dt>
+    <dd>
+    schedules an async task using <code>copas.addthread</code> and waits for completion.
+ On a timeout the task will be removed from the Copas scheduler, and the cancel
+ function will be called. The latter one is required when doing socket
+ operations, you must close the socket in case it is in the receiving/sending
+ queues
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">task</span>
+            <span class="types"><span class="type">function</span></span>
+         function with the task to execute
+        </li>
+        <li><span class="parameter">timeout</span>
+            <span class="types"><span class="type">number</span></span>
+         timeout in seconds for the task
+         (<em>default</em> 30)
+        </li>
+        <li><span class="parameter">cancel</span>
+            <span class="types"><span class="type">function</span></span>
+         function to cancel the task
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2022-08-13 12:41:43 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

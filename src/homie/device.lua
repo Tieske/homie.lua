@@ -1,4 +1,9 @@
---- Homie device object.
+--- Homie device implementation.
+-- This consists of a `Device` instance which can contain `Node` instances, which
+-- in turn can hold `Property` instances.
+--
+-- The device implementation will take care of homie related specifics.
+
 
 local mqtt = require "mqtt"
 local stringx = require "pl.stringx"
@@ -12,22 +17,87 @@ local utils = require "homie.utils"
 local Node = {}
 Node.__index = Node
 
--- Topic implementation --------------------------------------------------------
+--- The node id, as it appears in the MQTT topic (string, read-only).
+-- @field Node.id
+
+--- The ancestor class (read-only). Usefull when overriding methods, and needing access to
+-- the original methods.
+-- @field Node.super
+
+--- The owning `Device` of the Node (read-only).
+-- @field Node.device
+
+--- The name of the Node (string, read-only).
+-- @field Node.name
+
+--- The type of the Node (string, read-only).
+-- @field Node.type
+
+--- Hash-table with the Node's properties indexed by `Property.id` (read-only).
+-- @field Node.properties
+
+
+
+-- Property implementation --------------------------------------------------------
 local Property = {}
 Property.__index = Property
 
+--- The name of the property (string, read-only).
+-- @field Property.name
+
+--- Is the property a `retained` value? (boolean, read-only)
+-- @field Property.retained
+
+--- Is the property a `settable` value? (boolean, read-only)
+-- @field Property.settable
+
+--- The value of the property, do not use. Please use `Property:get` and `Property:set` to
+-- read/write the value.
+-- @field Property.value
+
+--- The owning `Device` of the property (read-only).
+-- @field Property.device
+
+--- The owning `Node` of the property (read-only).
+-- @field Property.node
+
+--- The MQTT topic for the property (string, read-only).
+-- @field Property.topic
+
+--- The property datatype (string, read-only).
+-- @field Property.datatype
+
+--- The property format (string, read-only).
+-- @field Property.format
+
+--- The property unit (string, read-only).
+-- @field Property.unit
+
+--- The property id, as it appears in the MQTT topic (string, read-only).
+-- @field Property.id
+
+--- The ancestor class (read-only). Usefull when overriding methods, and needing access to
+-- the original methods.
+-- @field Property.super
+
+
 --- Gets the current value.
+--
+-- *NOTE*: during initialization of a device this can return `nil`!
 -- @return the (unpacked) value
+-- @see Property:unpack
 function Property:get()
   return self.value
 end
 
 
---- Called when remotely setting the value.
--- Executes: `Property:unpack`, `Property:validate`, `Property:set`, in that order.
+--- Called when remotely setting the value, through the MQTT topic.
+-- There should be no need to override this method.
+-- This executes: `Property:unpack`, `Property:validate`, `Property:set`, in that order.
 -- Logs an error if something is wrong, and doesn't change the value in that case.
--- @param pvalue string, the packed value as received.
--- @return nothing
+-- @tparam string pvalue string, the packed value as received.
+-- @return `true` or `nil+err`
+-- @see Property:set
 function Property:rset(pvalue)
   if self.device.state == self.device.states.init then
     -- device is in init phase, so we might be restoring state
@@ -35,7 +105,7 @@ function Property:rset(pvalue)
       -- if prop is non-retained ignore incoming values while the device is still
       -- in "init" phase.
       log:debug("[homie] rset: skipping non-retained property in init phase '%s'", self.topic)
-      return
+      return true
     end
 
     -- despite maybe not being 'settable' we still restore state here in init phase
@@ -65,6 +135,7 @@ function Property:rset(pvalue)
 
   log:debug("[homie] rset: setting '%s = %s'", self.topic, pvalue)
   self:set(value, true)
+  return true
 end
 
 
@@ -165,11 +236,13 @@ do
       return false, "bad duration value"
     end,
   }
-  --- deserializes a received value.
-  -- override in case of deserialization needs.
-  -- NOTE: check return values!! nil is a valid value, so check 2nd return value for errors.
-  -- @param value string value to unpack/deserialize
-  -- @return any type of value (including nil), returns an error string as second value in case of errors.
+  --- Deserializes a value received over MQTT.
+  -- Override in case of (de)serialization needs.
+  --
+  -- *NOTE*: check return values!! `nil` is a valid value, so check 2nd return value for errors.
+  -- @tparam string value string value to unpack/deserialize
+  -- @return any type of value (including `nil`), returns an error string as second value in case of errors.
+  -- @see Property:unpack
   function Property:unpack(value)
     return unpackers[self.datatype](self, value)
   end
@@ -272,7 +345,7 @@ do
   --- Checks an (unpacked) value. Base implementation
   -- only checks format. Override for more validation checks.
   -- @param value the (unpacked) value to validate
-  -- @return true if ok, nil+err if not.
+  -- @return `true` if ok, `nil+err` if not.
   function Property:validate(value)
     return validators[self.datatype](self, value)
   end
@@ -280,10 +353,10 @@ end
 
 
 --- Local application code can set a value through this method.
--- Default just calls `update`. Implement actual changing device behaviour here
--- by overriding. When overriding, it should always end by calling `update`.
+-- Default just calls `Property:update`. Implement actual changing device behaviour here
+-- by overriding. When overriding, it should always end by calling `Property:update`.
 -- @param value the (unpacked) value to set
--- @tparam bool remote if truthy, the change came in over MQTT (via `Property:rset`)
+-- @tparam[opt=false] bool remote if truthy, the change came in over MQTT (via `Property:rset`)
 -- @return nothing
 function Property:set(value, remote)
   self:update(value)
@@ -350,10 +423,13 @@ do
       return "PT"..ret
     end,
   }
-  --- serializes a received value.
-  -- override in case of deserialization needs
+  --- Serializes a value to send over MQTT.
+  -- Override in case of (de)serialization needs. Since this method is only called after
+  -- `Property:validate`, it should always succeed. Any reason for not succeeding should
+  -- be handled when validating.
   -- @param value the unpacked value to be serialized into a string
   -- @return packed value (string), or nil+err on failure
+  -- @see Property:unpack
   function Property:pack(value)
     return packers[self.datatype](self, value)
   end
@@ -387,12 +463,12 @@ function Property:values_same(value1, value2)
   return value1 == value2
 end
 
--- update(value) validates and updates local .value and send mqtt message. No need to
+--- Validates the value and updates `Property.value`. Will send the MQTT update message. No need to
 -- override. Throws an error if either validation or packing fails.
 --
--- NOTE: if the property is NOT 'retained', then `force` will always be set to `true`.
+-- *NOTE*: if the property is NOT 'retained', then `force` will always be set to `true`.
 -- @param value the new (unpacked) value to set
--- @param force boolean, set to truthy to always send an update
+-- @tparam[opt=false] bool force set to truthy to always send an update, even if unchanged.
 -- @return nothing
 function Property:update(value, force)
   if self.datatype == "boolean" then
@@ -421,6 +497,58 @@ end
 
 
 -- Device implementation -------------------------------------------------------
+
+--- Enum table with possible values for `Device.state`.
+-- @field Device.states
+
+--- Current device status, see `Device.states` (string, read-only). Use `Device:set_state`
+-- to change the value.
+-- @field Device.state
+
+--- Homie version implemented by `Device` (string, read-only).
+-- @field Device.homie
+
+--- The name of the device (string, read-only).
+-- @field Device.name
+
+--- The homie extensions supported by the device (string, read-only).
+-- @field Device.extensions
+
+--- The homie implementation identifier (string, read-only).
+-- @field Device.implementation
+
+--- Hash-table with the Device's nodes indexed by `Node.id` (read-only).
+-- @field Device.nodes
+
+--- The homie domain to use (string, read-only).
+-- @field Device.domain
+
+--- The device base-topic; domain + device id (string, read-only).
+-- @field Device.base_topic
+
+--- The device id, as it appears in the MQTT topic (string, read-only).
+-- @field Device.id
+
+--- Recover device state from the broker? (false|number, read-only). If a number
+-- then it is the time (in seconds) to wait for all state to be returned by the
+-- broker (start-up delay).
+-- @field Device.broker_state
+
+--- Hash-table with broadcast handler functions, indexed by their broadcast topic (read-only).
+-- The keys (broadcast-topic) will be updated to be fully qualified.
+-- @field Device.broadcast
+
+--- The underlying `luamqtt` device used for the MQTT communications (read-only).
+-- @field Device.mqtt
+
+--- The mqtt-broker uri to connect to (string, read-only).
+-- @field Device.uri
+
+--- TODO:
+-- @field Device.send_updates
+
+
+
 local Device = {}
 Device.__index = Device
 require("homie.meta")(Device)
@@ -867,7 +995,7 @@ function Device:__init()
     handler = assert(type(handler) == "function" and handler, "expected broadcast handler to be a function")
 
     self.broadcast[topic] = true
-    self.broadcast_match[#self.broadcast_match+1] = {
+    self.broadcast_match[#self.broadcast_match + 1] = {
       pattern = mqtt.compile_topic_pattern(topic),
       handler = create_broadcast_handler(self, handler), -- inject 'self' as first parameter on call backs
     }
@@ -1016,9 +1144,9 @@ end
 
 
 --- Send an MQTT message with the value update.
--- @param topic to post to
--- @param pvalue the packed/serialized value to send over the wire
--- @param retained the retain flag to use when sending
+-- @tparam string topic to post to
+-- @tparam string pvalue the packed/serialized value to send over the wire
+-- @tparam[opt] boolean retained the retain flag to use when sending
 -- @return nothing
 function Device:send_property_update(topic, pvalue, retained)
   if not self.send_updates then
@@ -1035,14 +1163,17 @@ function Device:send_property_update(topic, pvalue, retained)
     payload = pvalue,
     qos = 1,
     retain = retained,
-    callback = function(...)
+    -- callback = function(...)
       -- TODO: implement, but what? timeout reporting?
-    end
+    -- end
   }
 end
 
 
---- Set a state. Waits for confirmation.
+--- Sets a device state. Waits for confirmation.
+-- @tparam string newstate any of the `Device.states` constants.
+-- @tparam[opt=30] number timeout timeout in seconds.
+-- @return success+err
 function Device:set_state(newstate, timeout)
   timeout = timeout or 30
   local s = Semaphore.new(1, 0, timeout)
@@ -1131,6 +1262,10 @@ function Device:connect_handler(connack)
 end
 
 
+--- Starts the device. Publishes the homie description topics and subscriptions,
+-- recovers state from the broker if set to do so, and sets status to `ready`.
+-- The device will set up keepalives, and will automatically reconnect if there is
+-- a failure.
 function Device:start()
   -- set initial state
   self.state = self.states.init
@@ -1151,7 +1286,7 @@ function Device:start()
 end
 
 
--- stops the device cleanly
+--- Stops the device cleanly. Sets device state to `disconnected`.
 function Device:stop()
   self:set_state(self.states.disconnected)
   self.mqtt:shutdown() -- disables any reconnects

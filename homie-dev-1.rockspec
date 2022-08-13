@@ -34,7 +34,6 @@ build = {
       ["homie.utils"] = "src/homie/utils.lua",
       ["homie.device"] = "src/homie/device.lua",
       ["homie.controller"] = "src/homie/controller.lua",
-      ["homie.devices.presence"] = "src/homie/devices/presence.lua",
    },
    copy_directories = {
       "docs",

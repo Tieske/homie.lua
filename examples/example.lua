@@ -1,7 +1,6 @@
-require "spec.configure-log"
 local copas = require "copas"
 local Device = require "homie.device"
-local log = require("logging").defaultLogger()
+local log = require("logging").defaultLogger() -- https://github.com/lunarmodules/lualogging
 
 local dev = {
   -- generic
@@ -39,6 +38,7 @@ local dev = {
 
   end,
 
+
   -- Homie device
   ---------------
 
@@ -50,11 +50,12 @@ local dev = {
   name = "my light",
   broadcast = {
     -- hash-table of broadcast subscriptions, with handlers; either relative, or
-    -- fully qualified topics.
-    -- Examples:
+    -- fully qualified topics. Examples:
+
     ["homie/$broadcast/alarms/smoke"] = function(homie_device, mqtt_msg)
       -- smoke was detected
     end,
+
     ["alarms/intruder"] = function(homie_device, mqtt_msg)
       -- this example will automatically be prefixed with "<domain>/$broadcast/".
       -- an intruder was detected
@@ -67,7 +68,7 @@ local dev = {
       type = "a dimmable light",
       properties = {
 
-        power = { -- value goes directly here. "power" is the property-id
+        power = { -- "power" is the property-id
           name = "power",
           datatype = "boolean",
           -- optionals
@@ -91,7 +92,7 @@ local dev = {
           -- The handler called to set a value (a Lua type value).
           -- This is where the major logic of the implementation should be
           -- implemented. Must call `self:update` to effectuate the change
-          set = function(self, value) -- self: property object, value: unpacked Lua value
+          set = function(self, value, remote) -- self: property object, value: unpacked Lua value
             log:info("Power set %s", tostring(value))
             local prop_output = self.node.properties.output
             local prop_bright = self.node.properties.brightness
@@ -139,7 +140,7 @@ local dev = {
 
         },
 
-        brightness = { -- value goes directly here. "brightness" is the property-id
+        brightness = { -- "brightness" is the property-id
           name = "brightness",
           datatype = "percent",
           -- optionals
@@ -152,7 +153,7 @@ local dev = {
           default = 100,
 
           -- 'set' handler
-          set = function(self, value) -- self: property object, value: unpacked Lua value
+          set = function(self, value, remote) -- self: property object, value: unpacked Lua value
             log:info("Brightness set %s", tostring(value))
             local prop_output = self.node.properties.output
             local prop_power = self.node.properties.power
@@ -172,7 +173,7 @@ local dev = {
           end,
         },
 
-        output = { -- value goes directly here. "output" is the property-id
+        output = { -- "output" is the property-id
           name = "power output",
           datatype = "percent",
           -- optionals
@@ -185,7 +186,7 @@ local dev = {
           default = 0,
 
           -- 'set' handler
-          set = function(self, value) -- self: property object, value: unpacked Lua value
+          set = function(self, value, remote) -- self: property object, value: unpacked Lua value
             log:info("Output set %s", tostring(value))
 
             -- implement actual device value setting to hardware here
@@ -194,9 +195,11 @@ local dev = {
           end,
         },
 
+
         -- more properties can be added here...
       },
     },
+
 
     -- more nodes can be added here....
   }

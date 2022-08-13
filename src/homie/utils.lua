@@ -1,3 +1,5 @@
+--- Generic utilities.
+
 local copas = require "copas"
 local now = require("socket").gettime
 local Semaphore = require "copas.semaphore"
@@ -9,7 +11,7 @@ local _M = {}
 --- waits for a task to complete. Does exponential backoff while waiting.
 -- @tparam function check should return true on completion
 -- @tparam[opt=30] number timeout time out in seconds
--- @tparam[opt=0.010] number first wait in seconds
+-- @tparam[opt=0.010] number init wait in seconds
 -- @tparam[opt=1] number max wait in seconds (each try doubles the wait until it hits this value)
 -- @return true if finished, or nil+timeout
 function _M.wait_for(check, timeout, init, max)
@@ -58,10 +60,11 @@ function _M.wait_for_task(task, timeout, cancel)
 end
 
 
---- (un)subscribes to/from a list of topics. Will not return until done/failed.
--- @param mqtt the mqtt device
--- @param list table with topics (topics can be in the key or value, as long as only one of them is a string)
--- @param unsub boolean: subcribe or unsubscribe
+--- (un)subscribes to/from a list of topics. Will not return until completely done/failed.
+-- @tparam mqtt-device mqtt the mqtt device
+-- @tparam array list table with topics (topics can be in the key or value, as long as only one of them is a string)
+-- @tparam bool unsub subcribe or unsubscribe
+-- @tparam number timeout timeout in seconds
 -- @return true or nil+err
 function _M.subscribe_topics(mqtt, list, unsub, timeout)
   assert(timeout, "timeout is a required parameter")
@@ -110,9 +113,10 @@ end
 --- Publishes a list of topics. Will not return until done/failed.
 -- Note: the defaults are; `retain = true`,
 -- `qos = 1`, and `callback` can't be set (will always be overridden).
--- @param mqtt the mqtt device
--- @param list table payloads indexed by topics (payload can also be a table with
--- options see mqtt_client:publish)
+-- @tparam mqtt-device mqtt the mqtt device
+-- @tparam array list table payloads indexed by topics (payload can also be a table with
+-- options see `mqtt_client:publish`)
+-- @tparam number timeout timeout in seconds
 -- @return true or nil+err
 function _M.publish_topics(mqtt, list, timeout)
   assert(timeout, "timeout is a required parameter")

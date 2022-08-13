@@ -1,0 +1,278 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Homie for Lua</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Homie.lua</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+
+
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><strong>example.lua</strong></li>
+</ul>
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/homie.controller.html">homie.controller</a></li>
+  <li><a href="../modules/homie.device.html">homie.device</a></li>
+  <li><a href="../modules/homie.utils.html">homie.utils</a></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="../topics/LICENSE.html">LICENSE</a></li>
+  <li><a href="../topics/README.md.html">README</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+    <h2>example.lua</h2>
+<pre>
+<span class="keyword">local</span> copas = <span class="global">require</span> <span class="string">"copas"</span>
+<span class="keyword">local</span> Device = <span class="global">require</span> <span class="string">"homie.device"</span>
+<span class="keyword">local</span> log = <span class="global">require</span>(<span class="string">"logging"</span>).defaultLogger() <span class="comment">-- https://github.com/lunarmodules/lualogging
+</span>
+<span class="keyword">local</span> dev = {
+  <span class="comment">-- generic
+</span>  <span class="comment">----------
+</span>
+  <span class="comment">-- URI to access the mqtt broker; mqtt(s)://user:pass@hostname:port
+</span>  uri = <span class="string">"mqtt://synology"</span>,
+
+  <span class="comment">-- homie base-domain (optional defaults to "homie")
+</span>  domain = <span class="string">"homie"</span>,
+
+
+  <span class="comment">-- Device options
+</span>  <span class="comment">-----------------
+</span>
+
+  <span class="comment">-- Whether or not to restore state from the mqtt broker.
+</span>  <span class="comment">-- set to 'false' or number (optional, defaults to false).
+</span>  <span class="comment">-- If set to a number the device will subscribe to its own topic values and
+</span>  <span class="comment">-- then wait for the number of seconds to receive the state from the broker.
+</span>  <span class="comment">-- Then it continues startup by calling the <code>verify_initial_values</code> method
+</span>  broker_state = <span class="number">3</span>, <span class="comment">--false,
+</span>
+
+  <span class="comment">-- This method is called in the "init" phase. After receiving the state from
+</span>  <span class="comment">-- the broker (if set to, see <code>broker_state</code>). This method MUST ensure that
+</span>  <span class="comment">-- all current values are consistent. After this method returns the device
+</span>  <span class="comment">-- will be set to <code>ready</code>. The default implementation will set any property
+</span>  <span class="comment">-- that didn't receive value restored from the broker to the value specified
+</span>  <span class="comment">-- as <code>default</code> in the <code>properties</code> table below.
+</span>  verify_initial_values = <span class="keyword">function</span>(self) <span class="comment">-- self: the Homie-device object
+</span>    self.super.verify_initial_values(self) <span class="comment">-- call ancestor method
+</span>
+    <span class="comment">-- implement custom logic
+</span>
+  <span class="keyword">end</span>,
+
+
+  <span class="comment">-- Homie device
+</span>  <span class="comment">---------------
+</span>
+  <span class="comment">-- these are the standard homie device topics, see homie spec
+</span>
+  id = <span class="string">"mydevice1"</span>,  <span class="comment">-- defaults to a random "homie-lua-xxxxx" value
+</span>  homie = <span class="string">"4.0.0"</span>, <span class="comment">-- implemented homie version, must be "4.0.0" for now
+</span>  extensions = <span class="string">""</span>, <span class="comment">-- implemented homie extensions, must be "" for now
+</span>  name = <span class="string">"my light"</span>,
+  broadcast = {
+    <span class="comment">-- hash-table of broadcast subscriptions, with handlers; either relative, or
+</span>    <span class="comment">-- fully qualified topics. Examples:
+</span>
+    [<span class="string">"homie/$broadcast/alarms/smoke"</span>] = <span class="keyword">function</span>(homie_device, mqtt_msg)
+      <span class="comment">-- smoke was detected
+</span>    <span class="keyword">end</span>,
+
+    [<span class="string">"alarms/intruder"</span>] = <span class="keyword">function</span>(homie_device, mqtt_msg)
+      <span class="comment">-- this example will automatically be prefixed with "&lt;domain&gt;/$broadcast/".
+</span>      <span class="comment">-- an intruder was detected
+</span>    <span class="keyword">end</span>,
+  },
+  nodes = {
+
+    tablelight = {  <span class="comment">-- "tablelight" is the Node-id
+</span>      name = <span class="string">"Living room table lights"</span>,
+      <span class="global">type</span> = <span class="string">"a dimmable light"</span>,
+      properties = {
+
+        power = { <span class="comment">-- "power" is the property-id
+</span>          name = <span class="string">"power"</span>,
+          datatype = <span class="string">"boolean"</span>,
+          <span class="comment">-- optionals
+</span>          settable = <span class="keyword">true</span>,
+          retained = <span class="keyword">true</span>,
+
+          <span class="comment">-- default value; see <code>verify_initial_values</code>
+</span>          default = <span class="keyword">false</span>,
+
+          <span class="comment">-- 'unpack' handler.
+</span>          <span class="comment">-- Will be used to unpack a value into a Lua format. The default
+</span>          <span class="comment">-- implementation will unpack all standard Homie datatypes.
+</span>          <span class="comment">-- For example; unpack a JSON payload.
+</span>          <span class="global">unpack</span> = <span class="keyword">function</span>(self, pvalue) <span class="comment">-- self: property object, pvalue; packed value (string)
+</span>            <span class="comment">-- return the unpacked value, stick to default behaviour.
+</span>            <span class="comment">-- return nil+err for unpack errors
+</span>            <span class="keyword">return</span> self.super.<span class="global">unpack</span>(self, pvalue)
+          <span class="keyword">end</span>,
+
+          <span class="comment">-- 'set' handler.
+</span>          <span class="comment">-- The handler called to set a value (a Lua type value).
+</span>          <span class="comment">-- This is where the major logic of the implementation should be
+</span>          <span class="comment">-- implemented. Must call <code>self:update</code> to effectuate the change
+</span>          set = <span class="keyword">function</span>(self, value, remote) <span class="comment">-- self: property object, value: unpacked Lua value
+</span>            log:info(<span class="string">"Power set %s"</span>, <span class="global">tostring</span>(value))
+            <span class="keyword">local</span> prop_output = self.node.properties.output
+            <span class="keyword">local</span> prop_bright = self.node.properties.brightness
+            <span class="keyword">if</span> value <span class="keyword">then</span>
+              <span class="keyword">local</span> bright = prop_bright:get()
+              <span class="keyword">if</span> bright <span class="keyword">then</span> <span class="comment">-- during init, this can be nil
+</span>                prop_output:set(bright)
+              <span class="keyword">end</span>
+            <span class="keyword">else</span>
+              prop_output:set(<span class="number">0</span>)
+            <span class="keyword">end</span>
+
+            self:update(value) <span class="comment">-- update the value internally, and publish topic
+</span>          <span class="keyword">end</span>,
+
+          <span class="comment">-- 'validate' handler.
+</span>          <span class="comment">-- The handler called to validate a value (a Lua type value).
+</span>          <span class="comment">-- Called twice: 1 before calling <code>set</code> in case the change comes in
+</span>          <span class="comment">-- from a settable mqtt topic (external). 2 from the <code>update</code> method
+</span>          <span class="comment">-- (after <code>set</code>).
+</span>          <span class="comment">-- Validate the value to be valid. Return true or false+err.
+</span>          validate = <span class="keyword">function</span>(self, value) <span class="comment">-- self: property object, value: unpacked Lua value
+</span>            <span class="comment">-- the default will perform standard Homie validations per "format" property.
+</span>            <span class="keyword">return</span> self.super.validate(self, value)
+          <span class="keyword">end</span>,
+
+          <span class="comment">-- 'value_same' handler.
+</span>          <span class="comment">-- Compares to (Lua type) values for equality. Returns true or false.
+</span>          <span class="comment">-- If it returns <code>true</code> then the update will not be sent to the MQTT
+</span>          <span class="comment">-- topic. Only values that actually differ will be posted.
+</span>          values_same = <span class="keyword">function</span>(self, value1, value2) <span class="comment">-- self: property object, value1/2: unpacked Lua value
+</span>            <span class="comment">-- the default will perform standard Homie comparison
+</span>            <span class="keyword">return</span> self.super.values_same(self, value1, value2)
+          <span class="keyword">end</span>,
+
+          <span class="comment">-- 'pack' handler.
+</span>          <span class="comment">-- Will be used to pack a Lua value into a Homie format. The default
+</span>          <span class="comment">-- implementation will pack all standard Homie datatypes.
+</span>          <span class="comment">-- For example; pack a JSON payload into a Homie string type
+</span>          pack = <span class="keyword">function</span>(self, value) <span class="comment">-- self: property object, value: unpacked Lua value
+</span>            <span class="comment">-- return the packed value, stick to default behaviour.
+</span>            <span class="comment">-- return nil+err for pack errors
+</span>            <span class="keyword">return</span> self.super.pack(self, value)
+          <span class="keyword">end</span>,
+
+        },
+
+        brightness = { <span class="comment">-- "brightness" is the property-id
+</span>          name = <span class="string">"brightness"</span>,
+          datatype = <span class="string">"percent"</span>,
+          <span class="comment">-- optionals
+</span>          settable = <span class="keyword">true</span>,
+          retained = <span class="keyword">true</span>,
+          format = <span class="string">"0:100"</span>,
+          unit = <span class="string">"%"</span>,
+
+          <span class="comment">-- default value; see <code>verify_initial_values</code>
+</span>          default = <span class="number">100</span>,
+
+          <span class="comment">-- 'set' handler
+</span>          set = <span class="keyword">function</span>(self, value, remote) <span class="comment">-- self: property object, value: unpacked Lua value
+</span>            log:info(<span class="string">"Brightness set %s"</span>, <span class="global">tostring</span>(value))
+            <span class="keyword">local</span> prop_output = self.node.properties.output
+            <span class="keyword">local</span> prop_power = self.node.properties.power
+
+            <span class="keyword">if</span> value == <span class="number">0</span> <span class="keyword">then</span>
+              <span class="comment">-- turn power off, but do not change brightness value
+</span>              prop_power:set(<span class="keyword">false</span>)
+              <span class="keyword">return</span> <span class="comment">-- do not call 'update', we keep our value
+</span>            <span class="keyword">end</span>
+
+            <span class="keyword">if</span> prop_power:get() <span class="keyword">then</span>
+              <span class="comment">-- only if power is on, change the output value
+</span>              prop_output:set(value)
+            <span class="keyword">end</span>
+
+            self:update(value) <span class="comment">-- update the value internally, and publish topic
+</span>          <span class="keyword">end</span>,
+        },
+
+        output = { <span class="comment">-- "output" is the property-id
+</span>          name = <span class="string">"power output"</span>,
+          datatype = <span class="string">"percent"</span>,
+          <span class="comment">-- optionals
+</span>          settable = <span class="keyword">false</span>,
+          retained = <span class="keyword">true</span>,
+          format = <span class="string">"0:100"</span>,
+          unit = <span class="string">"%"</span>,
+
+          <span class="comment">-- default value; see <code>verify_initial_values</code>
+</span>          default = <span class="number">0</span>,
+
+          <span class="comment">-- 'set' handler
+</span>          set = <span class="keyword">function</span>(self, value, remote) <span class="comment">-- self: property object, value: unpacked Lua value
+</span>            log:info(<span class="string">"Output set %s"</span>, <span class="global">tostring</span>(value))
+
+            <span class="comment">-- implement actual device value setting to hardware here
+</span>
+            self:update(value) <span class="comment">-- update the value internally, and publish topic
+</span>          <span class="keyword">end</span>,
+        },
+
+
+        <span class="comment">-- more properties can be added here...
+</span>      },
+    },
+
+
+    <span class="comment">-- more nodes can be added here....
+</span>  }
+}
+
+
+copas.loop(<span class="keyword">function</span>()
+  Device.new(dev):start()
+<span class="keyword">end</span>)</pre>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2022-08-13 12:41:43 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
