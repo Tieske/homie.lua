@@ -21,6 +21,15 @@ allows for running multiple devices in parallel.
 
 
 
+### Installation
+
+```sh
+luarocks install tieske/luamqtt --dev
+luarocks install homie
+```
+
+
+
 # License & copyright
 
 See [LICENSE](https://github.com/Tieske/homie.lua/blob/main/LICENSE).
