@@ -9,7 +9,7 @@ package = package_name
 version = package_version.."-"..rockspec_revision
 source = {
    url = "git+https://github.com/"..github_account_name.."/"..github_repo_name..".git",
-   branch = (package_version == "scm") and "master" or nil,
+   branch = (package_version == "scm") and "main" or nil,
    tag = (package_version ~= "scm") and package_version or nil,
 }
 description = {
