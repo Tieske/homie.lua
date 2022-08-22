@@ -1,4 +1,10 @@
+--- Controller class
+--
+-- Not implemented yet.
+
 -- TODO: implement a controller
+
+
 
 -- local mqtt = require "luamqtt"
 -- local log = require("lualogging").defaultLogger()
@@ -8,7 +14,7 @@ Controller.__index = Controller
 require("homie.meta")(Controller)
 
 --- Instantiate a new controller.
--- @tparam table[opt={}] opts Options table to create the instance from.
+-- @tparam[opt={}] table opts Options table to create the instance from.
 -- @return new controller object.
 function Controller.new(opts, empty)
   if empty ~= nil then error("do not call 'new' with colon-notation", 2) end

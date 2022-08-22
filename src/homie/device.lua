@@ -946,9 +946,8 @@ end
 
 --- Instantiate a new Homie device.
 -- @tparam table[opt={}] opts Options table to create the instance from.
--- @tparam string[opt="homie/"] opts.domain base domain
--- @tparam string[opt] opts.id device id. Defaults to `homie-xxxxxxx` randomized.
--- @tparam string[opt] opts.state_dir location to save device state file. Ommit to not save/load.
+-- @tparam[opt="homie/"] string opts.domain base domain
+-- @tparam[opt] string opts.id device id. Defaults to `homie-xxxxxxx` randomized.
 -- @return new device object.
 function Device.new(opts, empty)
   if empty ~= nil then error("do not call 'new' with colon-notation", 2) end
