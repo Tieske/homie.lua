@@ -1178,7 +1178,7 @@ function Device:set_state(newstate, timeout)
   timeout = timeout or 30
   local s = Semaphore.new(1, 0, timeout)
 
-  log:info("[homie] Setting device state: '%s%s = %s'", self.base_topic, "$state", self.state)
+  log:info("[homie] Setting device state: '%s%s = %s' (was '%s')", self.base_topic, "$state", newstate, self.state)
   self.mqtt:publish {
     topic = self.base_topic .. "$state",
     payload = self.states[newstate],
@@ -1191,7 +1191,7 @@ function Device:set_state(newstate, timeout)
 
   local ok, err = s:take(1)
   if not ok then
-    log:error("[homie] Failed setting device state '%s%s = %s', error: %s", self.base_topic, "$state", self.state, err)
+    log:error("[homie] Failed setting device state '%s%s = %s', error: %s", self.base_topic, "$state", newstate, err)
   else
     self.state = newstate
   end
