@@ -23,7 +23,7 @@ description = {
 }
 dependencies = {
    "lua >= 5.1, < 5.5",
-   "copas >= 4.0",
+   "copas >= 4.3, < 5",
    --"luamqtt",  -- do: "luarocks install Tieske/luamqtt --dev" for now
    "lualogging >= 1.6",
    "penlight ~> 1",

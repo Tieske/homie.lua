@@ -6,7 +6,7 @@ require "logging.console"
 ll.defaultLogger(ll.console {
 	logLevel = ll.DEBUG,
 	destination = "stderr",
-	timestampPattern = "%y-%m-%d %H:%M:%S",
+	timestampPattern = "%y-%m-%d %H:%M:%S.%q",
 	logPatterns = {
 		[ll.DEBUG] = ansicolors("%date%{cyan} %level %message %{reset}(%source)\n"),
 		[ll.INFO] = ansicolors("%date %level %message\n"),

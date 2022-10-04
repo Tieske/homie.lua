@@ -7,4 +7,4 @@ luarocks make
 # lua examples/dimmable-light.lua
 # lua -e "require'copas'.debug.start()" examples/presence.lua
 # lua examples/presence.lua
-lua examples/millheat.lua
+lua -e "require'spec.configure-log'" examples/example.lua
