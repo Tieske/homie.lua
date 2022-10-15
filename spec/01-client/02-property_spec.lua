@@ -471,7 +471,7 @@ describe("Homie device", function()
     it("validates value", function()
       assert.has.error(function()
         prop:set("abc")
-      end, "value is not an integer number within range")
+      end, "value is not an integer matching format 'nil', got: 'abc' (string)")
     end)
 
     it("calls device to send MQTT topic update", function()

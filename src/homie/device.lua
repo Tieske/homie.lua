@@ -153,7 +153,7 @@ do
           return v
         end
       end
-      return nil, "bad integer value"
+      return nil, ("bad integer value: '%s'"):format(value)
     end,
 
     float = function(prop, value)
@@ -163,13 +163,13 @@ do
           return v
         end
       end
-      return nil, "bad float value"
+      return nil, ("bad float value: '%s'"):format(value)
     end,
 
     percent = function(prop, value)
       local v = unpackers.float(prop, value)
       if not v then
-        return nil, "bad percent value"
+        return nil, ("bad percent value: '%s'"):format(value)
       end
       return v
     end,
@@ -178,7 +178,7 @@ do
       if value == "true" or value == "false" then
         return value == "true"
       end
-      return nil, "bad boolean value"
+      return nil, ("bad boolean value: '%s'"):format(value)
     end,
 
     enum = function(prop, value)
@@ -188,7 +188,7 @@ do
     color = function(prop, value)
       local v = { value:match("^(%d+),(%d+),(%d+)$") }
       if not v[1] then
-        return nil, "bad color value"
+        return nil, ("bad color value: '%s'"):format(value)
       end
       if prop.format == "hsv" then
         return { h = tonumber(v[1]), s = tonumber(v[2]), v = tonumber(v[3]) }
@@ -233,7 +233,7 @@ do
           return h*60*60 + m*60 + s
         end
       end
-      return false, "bad duration value"
+      return false, ("bad duration value: '%s'"):format(value)
     end,
   }
   --- Deserializes a value received over MQTT.
@@ -265,27 +265,36 @@ do
 
   validators = {
     string = function(prop, value)
-      local ok = type(value) == "string"
-      return ok, not ok and "value is not of type string" or nil
+      if type(value) == "string" then
+        return true
+      end
+      return false, ("value is not of type string, got: '%s' (%s)"):format(tostring(value), type(value))
     end,
 
     integer = function(prop, value)
-      local ok = type(value) == "number" and
-                 math.floor(value) == value and
-                 check_min_max(prop, value)
-      return ok, not ok and "value is not an integer number within range" or nil
+      if type(value) == "number" and
+          math.floor(value) == value and
+          check_min_max(prop, value) then
+        return true
+      end
+      return false, ("value is not an integer matching format '%s', got: '%s' (%s)"):
+                    format(tostring(prop.format), tostring(value), type(value))
     end,
 
     float = function(prop, value)
-      local ok = type(value) == "number" and
-                 check_min_max(prop, value)
-      return ok, not ok and "value is not a number within range" or nil
+      if type(value) == "number" and check_min_max(prop, value) then
+        return true
+      end
+      return false, ("value is not a float matching format '%s', got: '%s' (%s)"):
+                    format(tostring(prop.format), tostring(value), type(value))
     end,
 
     percent = function(prop, value)
-      local ok = type(value) == "number" and
-                 check_min_max(prop, value)
-      return ok, not ok and "value is not a number within range" or nil
+      if type(value) == "number" and check_min_max(prop, value) then
+        return true
+      end
+      return false, ("value is not a percentage matching format '%s', got: '%s' (%s)"):
+                    format(tostring(prop.format), tostring(value), type(value))
     end,
 
     boolean = function(prop, value)
@@ -295,17 +304,19 @@ do
 
     enum = function(prop, value)
       if type(value) ~= "string" or value == "" or value:find(",") then
-        return false, "value must be a non-empty string, and may not contain ','"
+        return false, ("value must be a non-empty string, and may not contain ',', got: '%s' (%s)"):
+                      format(tostring(value), type(value))
       end
       if (","..prop.format..","):find(","..value..",", 1, true) then
         return true
       end
-      return false, "value not found in enum list: " .. prop.format
+      return false, ("value '%s' not found in enum list: %s"):
+                    format(tostring(value), prop.format)
     end,
 
     color = function(prop, value)
       if type(value) ~= "table" then
-        return false, "value must be a table type"
+        return false, "value must be a table type, got: "..type(value)
       end
       local v
       if prop.format == "hsv" then
@@ -315,18 +326,21 @@ do
       end
       if type(v[1]) ~= "number" or type(v[2]) ~= "number" or type(v[3]) ~= "number" or
          math.floor(v[1]) ~= v[1] or math.floor(v[2]) ~= v[2] or math.floor(v[3]) ~= v[3] then
-        return false, "individual color values must be integer number type"
+        return false, ("individual color values must be integer number type, got: %s, %s, %s"):
+                      format(tostring(v[1]), tostring(v[2]), tostring(v[3]))
       end
       if prop.format == "hsv" then
         if v[1] < 0 or v[1] > 360 then
-          return false, "hsv value h must be from 0 to 360"
+          return false, "hsv value h must be from 0 to 360, got: "..tostring(v[1])
         end
         if v[2] < 0 or v[2] > 100 or v[3] < 0 or v[3] > 100 then
-          return false, "hsv values s and v must be from 0 to 100"
+          return false, ("hsv values s and v must be from 0 to 100, got: %s, %s"):
+                        format(tostring(v[2]), tostring(v[3]))
         end
       else
         if v[1] < 0 or v[1] > 255 or v[2] < 0 or v[2] > 255 or v[3] < 0 or v[3] > 255 then
-          return false, "rgb values must be from 0 to 255"
+          return false, ("rgb values must be from 0 to 255, got: %s, %s, %s"):
+                        format(tostring(v[1]), tostring(v[2]), tostring(v[3]))
         end
       end
       return true
@@ -337,8 +351,11 @@ do
     end,
 
     duration = function(prop, value)
-      local ok = type(value) == "number" and value >= 0
-      return ok, not ok and "value is not a valid duration" or nil
+      if type(value) == "number" and value >= 0 then
+        return true
+      end
+      return false, ("value is not a valid duration, got: %s (%s)"):
+                    format(tostring(value), type(value))
     end,
   }
 
