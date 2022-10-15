@@ -374,9 +374,9 @@ end
 -- by overriding. When overriding, it should always end by calling `Property:update`.
 -- @param value the (unpacked) value to set
 -- @tparam[opt=false] bool remote if truthy, the change came in over MQTT (via `Property:rset`)
--- @return nothing
+-- @return truthy on success or falsy+error
 function Property:set(value, remote)
-  self:update(value)
+  return self:update(value)
 end
 
 
@@ -481,18 +481,21 @@ function Property:values_same(value1, value2)
 end
 
 --- Validates the value and updates `Property.value`. Will send the MQTT update message. No need to
--- override. Throws an error if either validation or packing fails.
+-- override.
 --
 -- *NOTE*: if the property is NOT 'retained', then `force` will always be set to `true`.
 -- @param value the new (unpacked) value to set
 -- @tparam[opt=false] bool force set to truthy to always send an update, even if unchanged.
--- @return nothing
+-- @return true, or nil+error
 function Property:update(value, force)
   if self.datatype == "boolean" then
     value = not not value
   end
 
-  assert(self:validate(value))
+  local ok, err = self:validate(value)
+  if not ok then
+    return nil, err
+  end
 
   if not self.retained then
     -- if not retained then always update
@@ -501,15 +504,19 @@ function Property:update(value, force)
 
   if not force then
     if self:values_same(value, self:get()) then
-      return -- no need for updates
+      return true -- no need for updates
     end
   end
 
-  local pvalue = assert(self:pack(value))
+  local pvalue, err = self:pack(value)
+  if not pvalue then
+    return nil, err
+  end
+
   self.value = value
 
   -- craft mqtt packet and send it
-  self.device:send_property_update(self.topic, pvalue, self.retained)
+  return self.device:send_property_update(self.topic, pvalue, self.retained)
 end
 
 
@@ -1163,18 +1170,18 @@ end
 -- @tparam string topic to post to
 -- @tparam string pvalue the packed/serialized value to send over the wire
 -- @tparam[opt] boolean retained the retain flag to use when sending
--- @return nothing
+-- @return truthy, or falsy+error
 function Device:send_property_update(topic, pvalue, retained)
   if not self.send_updates then
     -- in init phase we do not update
-    return
+    return true
   end
 
   -- non-retained messages should be dropped if not connected
   -- retained ones should be queued, and coalesced.
   -- TODO: implement, for now just publish
 
-  self.mqtt:publish {
+  return self.mqtt:publish {
     topic = topic,
     payload = pvalue,
     qos = 1,
