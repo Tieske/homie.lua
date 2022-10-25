@@ -797,10 +797,6 @@ local function validate_property(prop)
     end
   end
 
-  if prop.datatype == "boolean" then
-    prop.value = not not prop.value
-  end
-
   return prop
 end
 
