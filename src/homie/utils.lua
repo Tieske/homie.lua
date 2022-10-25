@@ -6,7 +6,9 @@ local Semaphore = require "copas.semaphore"
 local Queue = require "copas.queue"
 --local log = require("logging").defaultLogger()
 
+
 local _M = {}
+
 
 --- waits for a task to complete. Does exponential backoff while waiting.
 -- @tparam function check should return true on completion
@@ -161,6 +163,20 @@ function _M.publish_topics(mqtt, list, timeout)
   q:destroy()
 
   return ok, err
+end
+
+
+--- Turns a string into a valid Homie identifier.
+-- @tparam string name a string, typically a human readable name
+-- @return string with Homie ID, or nil+err
+function _M.slugify(name)
+  local name_out = name:lower():gsub("[^a-z0-9]", "-"):gsub("^[^a-z]+", ""):
+      gsub("[^a-z0-9]+$", ""):gsub("%-%-+", "-")
+
+  if name_out == "" then
+    return nil, ("cannot slugify '%s', no valid characters left"):format(name)
+  end
+  return name_out
 end
 
 
