@@ -1240,7 +1240,7 @@ function Device:connect_handler(connack)
     if not ok then return end
 
     -- wait to receive all updates
-    copas.sleep(self.broker_state)
+    copas.pause(self.broker_state)
 
     -- unsubscribe from own topics, since by now we received the stored state from the broker
     local ok = utils.subscribe_topics(self.mqtt, self.own_topic_subscriptions, true, 60)

@@ -30,7 +30,7 @@ function _M.wait_for(check, timeout, init, max)
     if check() then
       return true
     end
-    copas.sleep(init)
+    copas.pause(init)
     init = math.min(max, init * 2)
   end
   return nil, "timeout"
