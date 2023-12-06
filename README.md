@@ -12,20 +12,20 @@ allows for running multiple devices in parallel.
 
 | :exclamation:  Important compatibility notes |
 |:---------------------------|
-| The LuaMQTT client has some serious issues. Hence for now [this branch](https://github.com/Tieske/luamqtt/tree/keepalive) is required, until the [related PR](https://github.com/xHasKx/luamqtt/pull/31) gets merged. |
+| The LuaMQTT client has some serious issues. Hence for now `luamqttt` (note the extra 't') is required |
 
-- [LuaMQTT client](https://github.com/xHasKx/luamqtt)
+- [LuaMQTT client](https://github.com/Tieske/luamqtt) fork
 - [Copas scheduler](https://github.com/lunarmodules/copas)
 - [LuaSec](https://github.com/brunoos/luasec/) required if using TLS connections
 - [LuaLogging](https://github.com/lunarmodules/lualogging) optional, but strongly recommended
-
+- [LuaBitOp] a manual dependency on Lua 5.1
 
 
 ### Installation
 
 ```sh
-luarocks install tieske/luamqtt --dev
 luarocks install homie
+luarocks install luabitop
 ```
 
 
@@ -43,12 +43,12 @@ See [LICENSE](https://github.com/Tieske/homie.lua/blob/main/LICENSE).
  - update version in `meta.lua`
  - update copyright years if needed (in `meta.lua` and `LICENSE`)
  - update rockspec
- - commit as `release X.Y.Z`
- - tag as `X.Y.Z`
+ - commit as `release vX.Y.Z`
+ - tag as `vX.Y.Z`
  - push commit and tag
  - upload to luarocks
  - test luarocks installation
 
-### 0.1.0 released [xx/xxx/2022]
+### 0.1.0 released 6-Dec-2022
 
 - initial version
